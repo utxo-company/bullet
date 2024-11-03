@@ -2,7 +2,9 @@ use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets.{add, from_asset, zero}
 use cardano/certificate.{RegisterCredential}
-use cardano/script_context.{Minting, Publishing, ScriptContext, Withdrawing, Spending}
+use cardano/script_context.{
+  Minting, Publishing, ScriptContext, Spending, Withdrawing,
+}
 use cardano/transaction.{
   InlineDatum, Input, Mint, NoDatum, Output, OutputReference, Redeemer,
   Transaction, Withdraw,
@@ -111,25 +113,21 @@ test cant_mint_extra_bullet() fail {
   bullet.bullet.else(sc)
 }
 
-
 const sc = {
-  let tx =
-    Transaction {
-      ..transaction.placeholder,
-      withdrawals: [
-        Pair(Script(#"aabbbccc"), 0),
-        Pair(Script(config.proxy_hash), 1000000),
-        Pair(VerificationKey(#"aabbbcccddeeff"), 0),
-      ],
-    }
+    let tx =
+      Transaction {
+        ..transaction.placeholder,
+        withdrawals: [
+          Pair(Script(#"aabbbccc"), 0),
+          Pair(Script(config.proxy_hash), 1000000),
+          Pair(VerificationKey(#"aabbbcccddeeff"), 0),
+        ],
+      }
 
-  ScriptContext(tx, 0, Spending(OutputReference("ouch", 2), None))
-
-}
+    ScriptContext(tx, 0, Spending(OutputReference("ouch", 2), None))
+  }
 
 test can_spend_bullet() {
-  
-
   bullet.bullet.else(sc)
 }
 
