@@ -1,6 +1,8 @@
 use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets.{add, from_asset, zero}
+use cardano/certificate.{RegisterCredential}
+use cardano/script_context.{Minting, Publishing, ScriptContext, Withdrawing, Spending}
 use cardano/transaction.{
   InlineDatum, Input, Mint, NoDatum, Output, OutputReference, Redeemer,
   Transaction, Withdraw,
@@ -37,7 +39,10 @@ test can_setup_stake() {
   let tx =
     Transaction { ..transaction.placeholder, inputs: [input], outputs: outputs }
 
-  bullet.stake_bullet.withdraw(Setup, account, tx)
+  let sc =
+    ScriptContext(tx, Setup, Publishing(0, RegisterCredential(account, Never)))
+
+  bullet.stake_bullet.else(sc)
 }
 
 test can_proxy_stake() {
@@ -51,7 +56,9 @@ test can_proxy_stake() {
       ],
     }
 
-  bullet.stake_bullet.withdraw(Signed, account, tx)
+  let sc = ScriptContext(tx, Signed, Withdrawing(account))
+
+  bullet.stake_bullet.else(sc)
 }
 
 test can_mint_bullet() {
@@ -74,7 +81,9 @@ test can_mint_bullet() {
       ],
     }
 
-  bullet.bullet.mint("555555", own_policy, tx)
+  let sc = ScriptContext(tx, "555555", Minting(own_policy))
+
+  bullet.bullet.else(sc)
 }
 
 test cant_mint_extra_bullet() fail {
@@ -97,10 +106,13 @@ test cant_mint_extra_bullet() fail {
       ],
     }
 
-  bullet.bullet.mint("555555", own_policy, tx)
+  let sc = ScriptContext(tx, "555555", Minting(own_policy))
+
+  bullet.bullet.else(sc)
 }
 
-test can_spend_bullet() {
+
+const sc = {
   let tx =
     Transaction {
       ..transaction.placeholder,
@@ -111,10 +123,17 @@ test can_spend_bullet() {
       ],
     }
 
-  bullet.bullet.spend(None, 0, "ouch", tx)
+  ScriptContext(tx, 0, Spending(OutputReference("ouch", 2), None))
+
 }
 
-test cant_steal_bullet() fail {
+test can_spend_bullet() {
+  
+
+  bullet.bullet.else(sc)
+}
+
+test cant_steal_bullet() {
   let tx =
     Transaction {
       ..transaction.placeholder,
@@ -124,5 +143,7 @@ test cant_steal_bullet() fail {
       ],
     }
 
-  bullet.bullet.spend(None, 0, "ouch", tx)
+  let sc = ScriptContext(tx, 0, Spending(OutputReference("ouch", 2), None))
+
+  !bullet.bullet.else(sc)
 }
