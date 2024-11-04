@@ -1,11 +1,10 @@
 use aiken/builtin
 use aiken/collection/dict.{to_pairs}
-use aiken/collection/list.{any, has}
-use aiken/collection/pairs.{has_key}
+use aiken/collection/list.{any}
 use aiken/crypto.{Signature, blake2b_256}
 use aiken/primitive/bytearray.{concat}
-use cardano/address.{Address, Inline, Script}
-use cardano/assets.{from_asset, to_dict, without_lovelace}
+use cardano/address.{Address, Credential, Inline, Script}
+use cardano/assets.{to_dict}
 use cardano/script_context.{
   Minting, Publishing, ScriptContext, Spending, Voting, Withdrawing,
 }
@@ -16,6 +15,7 @@ use config
 use types.{AccountState, Setup, StakeActions}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_find_key,
+  must_have,
 }
 
 // UserAccount =
@@ -130,7 +130,7 @@ validator stake_bullet {
       let expected_address =
         Address(Script(config.bullet_hash), Some(Inline(account)))
 
-      let expected_value = from_asset(config.bullet_hash, own_hash, 1)
+      let expected_value = [Pair(config.bullet_hash, [Pair(own_hash, 1)])]
 
       expect (hot_sigs, cold_sigs): (List<Signature>, List<Signature>) =
         sig_datum
@@ -143,10 +143,12 @@ validator stake_bullet {
         cold_cred_hash,
       } = datum
 
+      expect [_, ..rest] = value |> to_dict |> to_pairs
+
       and {
         any(inputs, fn(input) { input.output_reference == one_shot_ref }),
         // Check for account state is setup correctly
-        without_lovelace(value) == expected_value,
+        dataify(rest) == dataify(expected_value),
         address == expected_address,
         quorum > 0,
         check_all_valid_vk_sigs(hot_cred, hot_sigs, one_shot_message),
@@ -178,10 +180,13 @@ validator stake_bullet_types {
   }
 }
 
-fn check_for_proxy(tx: Transaction) -> Bool {
-  let proxy_cred = Script(config.proxy_hash)
+fn check_for_proxy(
+  withdrawals: Pairs<Credential, Int>,
+  proxy_cred: Credential,
+) -> Bool {
+  expect [Pair(k, _), ..rest] = withdrawals
 
-  has_key(tx.withdrawals, proxy_cred)
+  proxy_cred == k || check_for_proxy(rest, proxy_cred)
 }
 
 validator bullet {
@@ -190,7 +195,8 @@ validator bullet {
 
     when info is {
       // Main usage of bullet to spend utxos in a user account
-      Spending { .. } -> check_for_proxy(tx)
+      Spending { .. } ->
+        check_for_proxy(tx.withdrawals, Script(config.proxy_hash))
       // Used to create a new validators acount
       Minting(own_policy) -> {
         let Transaction { mint, redeemers, .. } = tx
@@ -204,14 +210,13 @@ validator bullet {
 
         or {
           quantity == -1,
-          {
-            let script_purp = Withdraw(Script(name))
-            let expected_action: Redeemer = Setup
-
-            and {
-              quantity == 1,
-              has(redeemers, Pair(script_purp, expected_action)),
-            }
+          and {
+            quantity == 1,
+            {
+              let script_purp = Withdraw(Script(name))
+              let expected_action: Redeemer = Setup
+              must_have(redeemers, Pair(script_purp, expected_action))
+            },
           },
         }
       }

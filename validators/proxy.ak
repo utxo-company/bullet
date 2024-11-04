@@ -3,10 +3,10 @@ use cardano/address.{Credential, Script}
 use cardano/assets.{Lovelace}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Minting, Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{Input, Output, OutputReference, Transaction}
+use cardano/transaction.{Input, OutputReference, Transaction}
 use config
-use types.{ColdCred, HotCred, Intention, VaultSpend}
-use utils.{dataify, inputs_inline_datum, must_find_item, quantity_of}
+use types.{ColdCred, HotCred, Intention, ProxyAction, VaultSpend}
+use utils.{dataify, ref_control_datum}
 
 fn must_have_key_data(
   withdrawals: Pairs<Credential, Lovelace>,
@@ -30,6 +30,8 @@ validator proxy_spend {
 
         let Transaction { reference_inputs, withdrawals, .. } = tx
 
+        let expected_nft = [Pair(own_hash, [Pair("", 1)])]
+
         // Get control credentials
         expect [
           hot_cred_contract, intention_contract, vault_spend_contract,
@@ -37,14 +39,7 @@ validator proxy_spend {
           ..
         ] =
           reference_inputs
-            |> must_find_item(
-                fn(input) {
-                  input.output.value
-                    |> quantity_of(own_hash, "")
-                    |> builtin.equals_integer(1)
-                },
-              )
-            |> inputs_inline_datum()
+            |> ref_control_datum(expected_nft)
             |> builtin.un_constr_data()
             |> builtin.snd_pair()
 
@@ -74,5 +69,19 @@ validator proxy_spend {
       Publishing(_, RegisterCredential { .. }) -> True
       _ -> fail
     }
+  }
+}
+
+validator proxy_spend_types {
+  withdraw(_r: ProxyAction, _acc, _tx) {
+    fail
+  }
+
+  mint(_r: Void, _op, _tx) {
+    fail
+  }
+
+  else(_) {
+    fail
   }
 }

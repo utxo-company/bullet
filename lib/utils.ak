@@ -20,6 +20,12 @@ pub fn must_find_key(pairs: Pairs<a, b>, key: a) -> b {
   }
 }
 
+pub fn must_have(list: List<a>, item: a) -> Bool {
+  expect [x, ..rest] = list
+
+  x == item || must_have(rest, item)
+}
+
 pub fn must_find_item(list: List<a>, predicate: fn(a) -> Bool) -> a {
   expect [item, ..rest] = list
 
@@ -41,6 +47,21 @@ pub fn at(list: List<a>, index: Int) -> a {
     builtin.head_list(list)
   } else {
     at(builtin.tail_list(list), index - 1)
+  }
+}
+
+pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
+  expect [input, ..rest] = ref_inputs
+
+  let Input { output, .. } = input
+
+  expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
+
+  if dataify(nft_value) == ref_value {
+    expect InlineDatum(control_datum) = output.datum
+    control_datum
+  } else {
+    ref_control_datum(rest, ref_value)
   }
 }
 
