@@ -12,10 +12,11 @@ use cardano/transaction.{
   InlineDatum, Output, OutputReference, Transaction, Withdraw,
 }
 use config
+use prefix.{nonce_prefix}
 use types.{AccountState, Nonce, Setup, StakeActions}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_find_key,
-  must_have, skip_list_mega_fast,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_find_item,
+  must_find_key, must_have,
 }
 
 // UserAccount =
@@ -139,7 +140,7 @@ validator stake_bullet {
         [
           Pair(
             config.bullet_hash,
-            [Pair(bytearray.concat(#"ffffffff", own_hash), 1)],
+            [Pair(bytearray.concat(nonce_prefix, own_hash), 1)],
           ),
         ]
 
@@ -165,7 +166,7 @@ validator stake_bullet {
         (dataify(rest_nonce) == dataify(expected_nonce_value))?,
         (address == expected_address)?,
         (nonce_addr == expected_nonce_address)?,
-        (dataify(Nonce(1, own_hash, Script(config.nonce_bullet_hash))) == nonce_datum)?,
+        (dataify(Nonce(1, own_hash)) == nonce_datum)?,
         (quorum > 0)?,
         check_all_valid_vk_sigs(hot_cred, hot_sigs, one_shot_message)?,
         check_all_valid_vk_sigs(cold_cred, cold_sigs, one_shot_message)?,
@@ -228,7 +229,7 @@ validator bullet {
             |> must_find_key(own_policy)
             |> to_pairs
         and {
-          (nonce_name == bytearray.concat(#"ffffffff", name))?,
+          (nonce_name == bytearray.concat(nonce_prefix, name))?,
           or {
             (quantity == -1 && nonce_quantity == -1)?,
             and {
@@ -259,58 +260,20 @@ validator bullet_types {
 
 validator nonce_bullet {
   else(sc: ScriptContext) {
-    let ScriptContext { transaction: tx, info, redeemer } = sc
+    let ScriptContext { transaction: tx, info, .. } = sc
 
     when info is {
-      Spending { datum, .. } ->
-        when datum is {
-          Some(datum) -> {
-            expect Nonce(old_nonce, account_hash, own_cred) as nonce_state =
-              datum
-
-            expect (output_index, new_nonce): (Int, Int) = redeemer
-
-            let Transaction { outputs, mint, .. } = tx
-
-            if output_index < 0 {
-              // We check account tokens are deleted
-              expect [Pair(name, -1), ..] =
-                mint
-                  |> to_dict
-                  |> to_pairs
-                  |> must_find_key(config.bullet_hash)
-                  |> to_pairs
-
-              name == account_hash
-            } else {
-              expect [Output(address, value, datum, _), ..] =
-                outputs |> skip_list_mega_fast(output_index)
-
-              expect [_, ..rest] = value |> to_dict |> to_pairs
-
-              let expected_address =
-                Address(own_cred, Some(Inline(Script(account_hash))))
-
-              let expected_value =
-                [
-                  Pair(
-                    config.bullet_hash,
-                    [Pair(bytearray.concat(#"ffffffff", account_hash), 1)],
-                  ),
-                ]
-
-              let expected_nonce = Nonce { ..nonce_state, increment: new_nonce }
-
-              and {
-                (old_nonce < new_nonce)?,
-                (address == expected_address)?,
-                (dataify(rest) == dataify(expected_value))?,
-                (datum == InlineDatum(expected_nonce))?,
-              }
-            }
-          }
-
-          None -> True
+      Spending { datum, output } ->
+        if datum == None {
+          let input =
+            must_find_item(
+              tx.inputs,
+              fn(inp) { inp.output_reference == output },
+            )
+          expect Some(Inline(cred)) = input.output.address.stake_credential
+          check_for_stake_proxy(tx, cred)
+        } else {
+          check_for_proxy(tx.withdrawals, Script(config.proxy_hash))
         }
 
       _ -> fail
@@ -320,7 +283,7 @@ validator nonce_bullet {
 
 /// Types for nonce bullet validator
 validator nonce_bullet_types {
-  spend(_d: Option<Data>, _r: (Int, Int), _o, _tx) {
+  spend(_d: Option<Data>, _r: Void, _o, _tx) {
     fail
   }
 

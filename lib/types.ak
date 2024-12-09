@@ -1,4 +1,4 @@
-use aiken/crypto.{Blake2b_256, Hash, ScriptHash, VerificationKey}
+use aiken/crypto.{Blake2b_256, Hash, ScriptHash, Signature, VerificationKey}
 use cardano/address.{Credential}
 
 pub type MessageHash =
@@ -41,7 +41,6 @@ pub type UtxoStates {
 pub type Nonce {
   increment: Int,
   account_hash: ScriptHash,
-  nonce_spend_cred: Credential,
 }
 
 pub type ProxyState {
@@ -55,4 +54,16 @@ pub type ProxyState {
 pub type Vk {
   Secp(VerificationKey)
   Schnorr(VerificationKey)
+}
+
+pub type HotAccountSpend {
+  user_stake: ScriptHash,
+  sigs: List<Signature>,
+}
+
+
+pub type AccountSpend {
+  user_stake: ScriptHash,
+  sigs: List<Signature>,
+  intention_output: Data,
 }

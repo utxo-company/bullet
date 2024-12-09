@@ -5,7 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{Control, Vk}
+use types.{Control, HotAccountSpend, Vk}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
   ref_control_datum,
@@ -29,10 +29,14 @@ validator hot_spend {
 
         let outputs = dataify(outputs)
 
-        expect (user_stake, sigs): (ScriptHash, List<Signature>) = redeemer
+        expect HotAccountSpend { user_stake, sigs } = redeemer
 
-        let expected_address =
-          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
+        let stake_key = Some(Inline(Script(user_stake)))
+
+        let expected_address = Address(Script(config.bullet_hash), stake_key)
+
+        let expected_nonce_address =
+          Address(Script(config.nonce_bullet_hash), stake_key)
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -44,7 +48,8 @@ validator hot_spend {
 
         expect hot_cred_hash: List<Credential> = hot_cred_hash
 
-        let inputs_spent = filter_hot_inputs(inputs, expected_address)
+        let inputs_spent =
+          filter_hot_inputs(inputs, expected_address, expected_nonce_address)
 
         if hot_cred == dataify([]) {
           check_tx_observed(hot_cred_hash, extra_signatories, withdrawals) >= quorum

@@ -7,8 +7,10 @@ use aiken/crypto.{
 use aiken/primitive/bytearray.{is_empty}
 use cardano/address.{Address, Credential, Script, VerificationKey}
 use cardano/assets.{AssetName, Lovelace, PolicyId, Value, to_dict}
-use cardano/transaction.{InlineDatum, Input, OutputReference}
-use types.{MessageHash, Schnorr, Secp, Vault, Vk}
+use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
+use config
+use prefix.{nonce_prefix}
+use types.{MessageHash, Nonce, Schnorr, Secp, Vault, Vk}
 
 pub fn must_find_key(pairs: Pairs<a, b>, key: a) -> b {
   expect [Pair(k2, value), ..rest] = pairs
@@ -202,24 +204,27 @@ pub fn dataify(d: Data) -> Data {
 pub fn filter_hot_inputs(
   list: List<Input>,
   address: Address,
+  nonce_address: Address,
 ) -> List<OutputReference> {
   when list is {
     [] -> []
-    [x, ..xs] -> {
-      let y = x.output
+    [input, ..xs] -> {
+      let Input(output_reference, Output { address: in_address, datum, .. }) =
+        input
 
-      if y.address == address {
-        let datum = y.datum
-
+      if in_address == address {
         if datum == InlineDatum(Vault) {
           fail
         } else {
-          [x.output_reference, ..filter_hot_inputs(xs, address)]
+          [output_reference, ..filter_hot_inputs(xs, address, nonce_address)]
         }
-      } else if y.address.payment_credential == address.payment_credential {
+      } else if or {
+        in_address.payment_credential == address.payment_credential,
+        in_address == nonce_address,
+      } {
         fail
       } else {
-        filter_hot_inputs(xs, address)
+        filter_hot_inputs(xs, address, nonce_address)
       }
     }
   }
@@ -228,18 +233,89 @@ pub fn filter_hot_inputs(
 pub fn filter_user_inputs(
   list: List<Input>,
   address: Address,
+  nonce_address: Address,
 ) -> List<OutputReference> {
   when list is {
     [] -> []
-    [x, ..xs] -> {
-      let y = x.output
+    [input, ..xs] -> {
+      let Input(output_reference, Output { address: in_address, .. }) = input
 
-      if y.address == address {
-        [x.output_reference, ..filter_user_inputs(xs, address)]
-      } else if y.address.payment_credential == address.payment_credential {
+      if in_address == address {
+        [output_reference, ..filter_hot_inputs(xs, address, nonce_address)]
+      } else if or {
+        in_address.payment_credential == address.payment_credential,
+        in_address == nonce_address,
+      } {
         fail
       } else {
-        filter_user_inputs(xs, address)
+        filter_hot_inputs(xs, address, nonce_address)
+      }
+    }
+  }
+}
+
+pub fn resolve_user_tx(
+  list: List<Input>,
+  address: Address,
+  nonce_address: Address,
+  filtered_inputs: List<OutputReference>,
+  nonce_present: Option<Nonce>,
+  callback: fn(List<OutputReference>, Option<Nonce>) -> Bool,
+) -> Bool {
+  when list is {
+    [] -> callback(filtered_inputs, nonce_present)
+    [input, ..xs] -> {
+      let Input(output_reference, Output { address: in_address, .. } as output) =
+        input
+
+      if in_address == address {
+        resolve_user_tx(
+          xs,
+          address,
+          nonce_address,
+          [output_reference, ..filtered_inputs],
+          nonce_present,
+          callback,
+        )
+      } else if in_address == nonce_address {
+        expect Output { value, datum: InlineDatum(datum), .. } = output
+
+        expect Nonce { account_hash, .. } as nonce_state = datum
+
+        let expected_value =
+          [
+            Pair(
+              config.bullet_hash,
+              [Pair(bytearray.concat(nonce_prefix, account_hash), 1)],
+            ),
+          ]
+
+        expect [_, ..nft_value] = value |> to_dict |> to_pairs
+
+        expect dataify(expected_value) == dataify(nft_value)
+
+        resolve_user_tx(
+          xs,
+          address,
+          nonce_address,
+          [output_reference, ..filtered_inputs],
+          Some(nonce_state),
+          callback,
+        )
+      } else if or {
+        in_address.payment_credential == address.payment_credential,
+        in_address.payment_credential == nonce_address.payment_credential,
+      } {
+        fail
+      } else {
+        resolve_user_tx(
+          xs,
+          address,
+          nonce_address,
+          filtered_inputs,
+          nonce_present,
+          callback,
+        )
       }
     }
   }

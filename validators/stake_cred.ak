@@ -17,6 +17,7 @@ validator proxy_stake {
       Withdrawing(_) -> {
         let Transaction {
           reference_inputs,
+          outputs,
           withdrawals,
           extra_signatories,
           certificates,
@@ -41,7 +42,7 @@ validator proxy_stake {
         } else {
           expect hot_cred: List<Vk> = hot_cred
           let message =
-            (withdrawals, certificates, votes)
+            (outputs, withdrawals, certificates, votes)
               |> builtin.serialise_data()
               |> blake2b_256()
 

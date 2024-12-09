@@ -5,10 +5,10 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{Control, Vk}
+use types.{AccountSpend, Control, Vk}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, filter_user_inputs,
-  ref_control_datum,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, ref_control_datum,
+  resolve_user_tx,
 }
 
 validator vault_spend {
@@ -28,10 +28,7 @@ validator vault_spend {
 
         let outputs = dataify(outputs)
 
-        expect (user_stake, sigs): (ScriptHash, List<Signature>) = redeemer
-
-        let expected_address =
-          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
+        expect AccountSpend(user_stake, sigs, nonce_output) = redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -41,7 +38,24 @@ validator vault_spend {
 
         expect hot_cred_hash: List<Credential> = hot_cred_hash
 
-        let inputs_spent = filter_user_inputs(inputs, expected_address)
+        let stake_key = Some(Inline(Script(user_stake)))
+
+        let expected_address = Address(Script(config.bullet_hash), stake_key)
+
+        let expected_nonce_address =
+          Address(Script(config.nonce_bullet_hash), stake_key)
+
+        let
+          inputs_spent,
+          nonce_state,
+        <-
+          resolve_user_tx(
+            inputs,
+            expected_address,
+            expected_nonce_address,
+            [],
+            None,
+          )
 
         if hot_cred == dataify([]) {
           check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals)

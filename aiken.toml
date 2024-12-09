@@ -29,4 +29,5 @@ new_user_tx_hash = "new_guy_in_town"
 new_user_output_index = 0
 one_shot_tx_hash = "one_shot_one_kill"
 one_shot_output_index = 0
+one_shot_mint_hash = "the_best_mint_ever"
 name_space = "Bullet"

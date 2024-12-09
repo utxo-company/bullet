@@ -1,8 +1,8 @@
 use aiken/builtin
-use cardano/address.{Credential, Script}
+use cardano/address.{Credential}
 use cardano/assets.{Lovelace}
 use cardano/certificate.{RegisterCredential}
-use cardano/script_context.{Minting, Publishing, ScriptContext, Withdrawing}
+use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Input, OutputReference, Transaction}
 use config
 use types.{ColdControl, ColdCred, HotCred, Intention, ProxyAction, VaultSpend}
@@ -19,18 +19,15 @@ fn must_have_key_data(
 
 /// The bread and butter of Bullet
 /// The ultimate contract. A simple tiny withdraw validator that orchestrates all the music
-/// TODO: simply use the else validator to shrink as much as possible
 validator proxy_spend {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, redeemer, info } = sc
 
     when info is {
-      Withdrawing(account) -> {
-        expect Script(own_hash) = account
-
+      Withdrawing(_) -> {
         let Transaction { reference_inputs, withdrawals, .. } = tx
 
-        let expected_nft = [Pair(own_hash, [Pair("", 1)])]
+        let expected_nft = [Pair(config.one_shot_mint_hash, [Pair("", 1)])]
 
         // Get control credentials
         expect [
@@ -57,17 +54,6 @@ validator proxy_spend {
           must_have_key_data(withdrawals, delete_contract)
         }
       }
-      Minting(_) -> {
-        let Transaction { inputs, .. } = tx
-
-        let one_shot_ref =
-          config.one_shot_tx_hash
-            |> OutputReference(config.one_shot_output_index)
-
-        expect [Input { output_reference, .. }, ..] = inputs
-
-        output_reference == one_shot_ref
-      }
       Publishing(_, RegisterCredential { .. }) -> True
       _ -> fail
     }
@@ -81,6 +67,24 @@ validator proxy_spend_types {
 
   mint(_r: Void, _op, _tx) {
     fail
+  }
+
+  else(_) {
+    fail
+  }
+}
+
+validator one_shot_proxy_mint {
+  mint(_r, _own_policy, tx: Transaction) {
+    let Transaction { inputs, .. } = tx
+
+    let one_shot_ref =
+      config.one_shot_tx_hash
+        |> OutputReference(config.one_shot_output_index)
+
+    expect [Input { output_reference, .. }, ..] = inputs
+
+    output_reference == one_shot_ref
   }
 
   else(_) {

@@ -11,6 +11,7 @@ use cardano/transaction.{
   Transaction, Withdraw,
 }
 use config
+use prefix.{nonce_prefix}
 use types.{AccountState, Nonce, Setup, Signed}
 use utils.{dataify}
 
@@ -32,14 +33,14 @@ test setup_stake_bullet() {
   let expected_nonce_value =
     from_asset(
       config.bullet_hash,
-      bytearray.concat(#"ffffffff", "blargh_uuuug"),
+      bytearray.concat(nonce_prefix, "blargh_uuuug"),
       1,
     )
       |> merge(from_lovelace(10000))
 
   let account_state = AccountState(1, [], [], [], [])
 
-  let nonce_state = Nonce(1, "blargh_uuuug", Script(config.nonce_bullet_hash))
+  let nonce_state = Nonce(1, "blargh_uuuug")
 
   let input =
     Input(
@@ -98,7 +99,7 @@ test can_mint_bullet() {
     Transaction {
       ..transaction.placeholder,
       mint: from_asset(own_policy, name, 1)
-        |> merge(from_asset(own_policy, bytearray.concat(#"ffffffff", name), 1)),
+        |> merge(from_asset(own_policy, bytearray.concat(nonce_prefix, name), 1)),
       redeemers: [
         Pair(Mint(#"aabbbcccddeeff"), other),
         Pair(Withdraw(Script(#"aabbbccc")), other2),

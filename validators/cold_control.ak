@@ -38,10 +38,15 @@ validator cold_control {
         ): (Int, ScriptHash, List<Signature>, List<Signature>, List<Signature>) =
           redeemer
 
-        let expected_address =
-          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
+        let stake_key = Some(Inline(Script(user_stake)))
 
-        let inputs_spent = filter_user_inputs(inputs, expected_address)
+        let expected_address = Address(Script(config.bullet_hash), stake_key)
+
+        let expected_nonce_address =
+          Address(Script(config.nonce_bullet_hash), stake_key)
+
+        let inputs_spent =
+          filter_user_inputs(inputs, expected_address, expected_nonce_address)
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
