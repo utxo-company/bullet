@@ -22,7 +22,7 @@ source = "github"
 
 [config.default]
 bullet_hash = "totally_valid"
-nonce_bullet_hash = "totally_valid"
+nonce_bullet_hash = "totally_valid_nonce"
 proxy_hash = "valid_proxy"
 stake_proxy_hash = "staking_proxy"
 new_user_tx_hash = "new_guy_in_town"

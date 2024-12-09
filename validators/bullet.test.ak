@@ -1,7 +1,7 @@
 use aiken/primitive/bytearray
 use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}
-use cardano/assets.{add, from_asset, from_lovelace, zero}
+use cardano/assets.{add, from_asset, from_lovelace, merge, zero}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{
   Minting, Publishing, ScriptContext, Spending, Withdrawing,
@@ -11,10 +11,10 @@ use cardano/transaction.{
   Transaction, Withdraw,
 }
 use config
-use types.{AccountState, Setup, Signed}
+use types.{AccountState, Nonce, Setup, Signed}
 use utils.{dataify}
 
-test can_setup_stake() {
+test setup_stake_bullet() {
   let account = Script("blargh_uuuug")
 
   let address = Address(Script("blue"), None)
@@ -22,18 +22,24 @@ test can_setup_stake() {
   let expected_address =
     Address(Script(config.bullet_hash), Some(Inline(account)))
 
+  let expected_nonce_address =
+    Address(Script(config.nonce_bullet_hash), Some(Inline(account)))
+
   let expected_value =
     from_asset(config.bullet_hash, "blargh_uuuug", 1)
-      |> assets.merge(
-          from_asset(
-            config.bullet_hash,
-            bytearray.concat(#"ffffffff", "blargh_uuuug"),
-            1,
-          ),
-        )
-      |> assets.merge(from_lovelace(10000))
+      |> merge(from_lovelace(10000))
 
-  let account_state = AccountStxate(1, [], [], [], [])
+  let expected_nonce_value =
+    from_asset(
+      config.bullet_hash,
+      bytearray.concat(#"ffffffff", "blargh_uuuug"),
+      1,
+    )
+      |> merge(from_lovelace(10000))
+
+  let account_state = AccountState(1, [], [], [], [])
+
+  let nonce_state = Nonce(1, "blargh_uuuug", Script(config.nonce_bullet_hash))
 
   let input =
     Input(
@@ -45,6 +51,12 @@ test can_setup_stake() {
   let outputs =
     [
       Output(expected_address, expected_value, InlineDatum(account_state), None),
+      Output(
+        expected_nonce_address,
+        expected_nonce_value,
+        InlineDatum(nonce_state),
+        None,
+      ),
       Output(address, zero, InlineDatum([[], []]), None),
     ]
 
@@ -85,7 +97,8 @@ test can_mint_bullet() {
   let tx =
     Transaction {
       ..transaction.placeholder,
-      mint: from_asset(own_policy, name, 1),
+      mint: from_asset(own_policy, name, 1)
+        |> merge(from_asset(own_policy, bytearray.concat(#"ffffffff", name), 1)),
       redeemers: [
         Pair(Mint(#"aabbbcccddeeff"), other),
         Pair(Withdraw(Script(#"aabbbccc")), other2),

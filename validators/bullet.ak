@@ -292,7 +292,12 @@ validator nonce_bullet {
                 Address(own_cred, Some(Inline(Script(account_hash))))
 
               let expected_value =
-                [Pair(config.bullet_hash, [Pair(account_hash, 1)])]
+                [
+                  Pair(
+                    config.bullet_hash,
+                    [Pair(bytearray.concat(#"ffffffff", account_hash), 1)],
+                  ),
+                ]
 
               let expected_nonce = Nonce { ..nonce_state, increment: new_nonce }
 
