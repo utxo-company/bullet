@@ -1,4 +1,4 @@
-use aiken/crypto.{Blake2b_256, Hash, VerificationKey}
+use aiken/crypto.{Blake2b_256, Hash, ScriptHash, VerificationKey}
 use cardano/address.{Credential}
 
 pub type MessageHash =
@@ -15,6 +15,7 @@ pub type ProxyAction {
   VaultSpend
   ColdCred
   ColdControl
+  Delete
 }
 
 pub type AccountState {
@@ -33,8 +34,14 @@ pub type UtxoStates {
     cold_cred: Data<List<Vk>>,
     cold_cred_hash: Data<List<Credential>>,
   }
-  Nonce(Int)
+  ParallelNonce
   Vault
+}
+
+pub type Nonce {
+  increment: Int,
+  account_hash: ScriptHash,
+  nonce_spend_cred: Credential,
 }
 
 pub type ProxyState {

@@ -1,6 +1,6 @@
 name = "bullet/account-abstraction"
 version = "0.0.1"
-compiler = "v1.1.5"
+compiler = "v1.1.7"
 plutus = "v3"
 license = "Apache-2.0"
 description = "Aiken contracts for project 'bullet/account-abstraction'"
@@ -22,6 +22,7 @@ source = "github"
 
 [config.default]
 bullet_hash = "totally_valid"
+nonce_bullet_hash = "totally_valid"
 proxy_hash = "valid_proxy"
 stake_proxy_hash = "staking_proxy"
 new_user_tx_hash = "new_guy_in_town"

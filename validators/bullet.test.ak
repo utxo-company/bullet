@@ -1,6 +1,7 @@
+use aiken/primitive/bytearray
 use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}
-use cardano/assets.{add, from_asset, zero}
+use cardano/assets.{add, from_asset, from_lovelace, zero}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{
   Minting, Publishing, ScriptContext, Spending, Withdrawing,
@@ -21,9 +22,18 @@ test can_setup_stake() {
   let expected_address =
     Address(Script(config.bullet_hash), Some(Inline(account)))
 
-  let expected_value = from_asset(config.bullet_hash, "blargh_uuuug", 1)
+  let expected_value =
+    from_asset(config.bullet_hash, "blargh_uuuug", 1)
+      |> assets.merge(
+          from_asset(
+            config.bullet_hash,
+            bytearray.concat(#"ffffffff", "blargh_uuuug"),
+            1,
+          ),
+        )
+      |> assets.merge(from_lovelace(10000))
 
-  let account_state = AccountState(1, [], [], [], [])
+  let account_state = AccountStxate(1, [], [], [], [])
 
   let input =
     Input(
@@ -131,7 +141,7 @@ test can_spend_bullet() {
   bullet.bullet.else(sc)
 }
 
-test cant_steal_bullet() {
+test cant_steal_bullet() fail {
   let tx =
     Transaction {
       ..transaction.placeholder,

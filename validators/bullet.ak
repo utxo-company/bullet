@@ -9,13 +9,13 @@ use cardano/script_context.{
   Minting, Publishing, ScriptContext, Spending, Voting, Withdrawing,
 }
 use cardano/transaction.{
-  InlineDatum, Output, OutputReference, Redeemer, Transaction, Withdraw,
+  InlineDatum, Output, OutputReference, Transaction, Withdraw,
 }
 use config
-use types.{AccountState, Setup, StakeActions}
+use types.{AccountState, Nonce, Setup, StakeActions}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_find_key,
-  must_have,
+  must_have, skip_list_mega_fast,
 }
 
 // UserAccount =
@@ -23,6 +23,14 @@ use utils.{
 
 // UserAccount =
 // Address(Script("BULLET"), Some(Inline(Script("TRUE_STAKE_KEY"))))
+
+/// Used as an example of how an always true 
+/// stake key does not comprimise other user accounts
+validator true_stake_bullet {
+  else(_) {
+    True
+  }
+}
 
 fn check_for_stake_proxy(tx: Transaction, credential: Data) {
   let proxy_cred = Withdraw(Script(config.stake_proxy_hash))
@@ -32,14 +40,6 @@ fn check_for_stake_proxy(tx: Transaction, credential: Data) {
   expect [cred, ..] = builtin.un_list_data(redeemer)
 
   cred == credential
-}
-
-/// Used as an example of how an always true 
-/// stake key does not comprimise other user accounts
-validator true_stake_bullet {
-  else(_) {
-    True
-  }
 }
 
 /// Rely on proxy stake validator for all other validation besides setup
@@ -53,30 +53,23 @@ validator stake_bullet {
     let cred =
       when info is {
         Withdrawing(cred) -> dataify(cred)
-        // Seven is my lucky number 
-        // Actually the first seven certificates have the certificate credential as the first field
+        // The first seven certificates have the certificate credential as the first field
         //  RegisterCredential {
-        //   credential: Credential,
-        //   deposit: Never,
+        //   credential: Credential, ..
         // }
         // UnregisterCredential {
-        //   credential: Credential,
-        //   refund: Never,
+        //   credential: Credential, ..
         // }
-        // DelegateCredential { credential: Credential, delegate: Delegate }
+        // DelegateCredential { credential: Credential, .. }
         // RegisterAndDelegateCredential {
-        //   credential: Credential,
-        //   delegate: Delegate,
-        //   deposit: Lovelace,
+        //   credential: Credential, ..
         // }
         // RegisterDelegateRepresentative {
-        //   delegate_representative: Credential,
-        //   deposit: Lovelace,
+        //   delegate_representative: Credential, ..
         // }
         // UpdateDelegateRepresentative { delegate_representative: Credential }
         // UnregisterDelegateRepresentative {
-        //   delegate_representative: Credential,
-        //   refund: Lovelace,
+        //   delegate_representative: Credential, ..
         // }
         Publishing { certificate, .. } -> {
           expect Pair(index, [cred, ..]) = unconstr(certificate)
@@ -111,6 +104,7 @@ validator stake_bullet {
       // This should come from a pub key anyway 
       // so this is fine to one time validate credentials are
       // valid
+      // We use blake2b_256 since secp256k1 message size is 32 bytes
       let one_shot_message =
         one_shot_ref
           |> builtin.serialise_data()
@@ -123,6 +117,12 @@ validator stake_bullet {
       // And this is only run once per user so impact is minimal
       expect [
         Output { address, value, datum: InlineDatum(datum), .. },
+        Output {
+          address: nonce_addr,
+          value: nonce_value,
+          datum: InlineDatum(nonce_datum),
+          ..
+        },
         Output { datum: InlineDatum(sig_datum), .. },
         ..
       ] = outputs
@@ -130,7 +130,18 @@ validator stake_bullet {
       let expected_address =
         Address(Script(config.bullet_hash), Some(Inline(account)))
 
+      let expected_nonce_address =
+        Address(Script(config.nonce_bullet_hash), Some(Inline(account)))
+
       let expected_value = [Pair(config.bullet_hash, [Pair(own_hash, 1)])]
+
+      let expected_nonce_value =
+        [
+          Pair(
+            config.bullet_hash,
+            [Pair(bytearray.concat(#"ffffffff", own_hash), 1)],
+          ),
+        ]
 
       expect (hot_sigs, cold_sigs): (List<Signature>, List<Signature>) =
         sig_datum
@@ -145,16 +156,21 @@ validator stake_bullet {
 
       expect [_, ..rest] = value |> to_dict |> to_pairs
 
+      expect [_, ..rest_nonce] = nonce_value |> to_dict |> to_pairs
+
       and {
-        any(inputs, fn(input) { input.output_reference == one_shot_ref }),
+        any(inputs, fn(input) { input.output_reference == one_shot_ref })?,
         // Check for account state is setup correctly
-        dataify(rest) == dataify(expected_value),
-        address == expected_address,
-        quorum > 0,
-        check_all_valid_vk_sigs(hot_cred, hot_sigs, one_shot_message),
-        check_all_valid_vk_sigs(cold_cred, cold_sigs, one_shot_message),
-        check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals),
-        check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals),
+        (dataify(rest) == dataify(expected_value))?,
+        (dataify(rest_nonce) == dataify(expected_nonce_value))?,
+        (address == expected_address)?,
+        (nonce_addr == expected_nonce_address)?,
+        (dataify(Nonce(1, own_hash, Script(config.nonce_bullet_hash))) == nonce_datum)?,
+        (quorum > 0)?,
+        check_all_valid_vk_sigs(hot_cred, hot_sigs, one_shot_message)?,
+        check_all_valid_vk_sigs(cold_cred, cold_sigs, one_shot_message)?,
+        check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals)?,
+        check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals)?,
       }
     } else {
       check_for_stake_proxy(tx, cred)
@@ -186,7 +202,10 @@ fn check_for_proxy(
 ) -> Bool {
   expect [Pair(k, _), ..rest] = withdrawals
 
-  proxy_cred == k || check_for_proxy(rest, proxy_cred)
+  or {
+    proxy_cred == k,
+    check_for_proxy(rest, proxy_cred),
+  }
 }
 
 validator bullet {
@@ -201,21 +220,20 @@ validator bullet {
       Minting(own_policy) -> {
         let Transaction { mint, redeemers, .. } = tx
 
-        expect [Pair(name, quantity)] =
+        expect [Pair(name, quantity),
+          Pair(nonce_name, nonce_quantity)] =
           mint
             |> to_dict
             |> to_pairs
             |> must_find_key(own_policy)
             |> to_pairs
-
-        or {
-          quantity == -1,
-          and {
-            quantity == 1,
-            {
-              let script_purp = Withdraw(Script(name))
-              let expected_action: Redeemer = Setup
-              must_have(redeemers, Pair(script_purp, expected_action))
+        and {
+          (nonce_name == bytearray.concat(#"ffffffff", name))?,
+          or {
+            (quantity == -1 && nonce_quantity == -1)?,
+            and {
+              (quantity == 1 && nonce_quantity == 1)?,
+              must_have(redeemers, Pair(Withdraw(Script(name)), dataify(Setup))),
             },
           },
         }
@@ -225,13 +243,79 @@ validator bullet {
   }
 }
 
-/// Types for bullet validator
 validator bullet_types {
   spend(_d: Option<Data>, _r: Void, _o, _tx) {
     fail
   }
 
   mint(_r: Void, _o, _tx) {
+    fail
+  }
+
+  else(_) {
+    fail
+  }
+}
+
+validator nonce_bullet {
+  else(sc: ScriptContext) {
+    let ScriptContext { transaction: tx, info, redeemer } = sc
+
+    when info is {
+      Spending { datum, .. } ->
+        when datum is {
+          Some(datum) -> {
+            expect Nonce(old_nonce, account_hash, own_cred) as nonce_state =
+              datum
+
+            expect (output_index, new_nonce): (Int, Int) = redeemer
+
+            let Transaction { outputs, mint, .. } = tx
+
+            if output_index < 0 {
+              // We check account tokens are deleted
+              expect [Pair(name, -1), ..] =
+                mint
+                  |> to_dict
+                  |> to_pairs
+                  |> must_find_key(config.bullet_hash)
+                  |> to_pairs
+
+              name == account_hash
+            } else {
+              expect [Output(address, value, datum, _), ..] =
+                outputs |> skip_list_mega_fast(output_index)
+
+              expect [_, ..rest] = value |> to_dict |> to_pairs
+
+              let expected_address =
+                Address(own_cred, Some(Inline(Script(account_hash))))
+
+              let expected_value =
+                [Pair(config.bullet_hash, [Pair(account_hash, 1)])]
+
+              let expected_nonce = Nonce { ..nonce_state, increment: new_nonce }
+
+              and {
+                (old_nonce < new_nonce)?,
+                (address == expected_address)?,
+                (dataify(rest) == dataify(expected_value))?,
+                (datum == InlineDatum(expected_nonce))?,
+              }
+            }
+          }
+
+          None -> True
+        }
+
+      _ -> fail
+    }
+  }
+}
+
+/// Types for nonce bullet validator
+validator nonce_bullet_types {
+  spend(_d: Option<Data>, _r: (Int, Int), _o, _tx) {
     fail
   }
 

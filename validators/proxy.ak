@@ -5,7 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Minting, Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Input, OutputReference, Transaction}
 use config
-use types.{ColdCred, HotCred, Intention, ProxyAction, VaultSpend}
+use types.{ColdControl, ColdCred, HotCred, Intention, ProxyAction, VaultSpend}
 use utils.{dataify, ref_control_datum}
 
 fn must_have_key_data(
@@ -35,7 +35,7 @@ validator proxy_spend {
         // Get control credentials
         expect [
           hot_cred_contract, intention_contract, vault_spend_contract,
-          cold_cred_contract, cold_control_contract,
+          cold_cred_contract, cold_control_contract, delete_contract,
           ..
         ] =
           reference_inputs
@@ -51,8 +51,10 @@ validator proxy_spend {
           must_have_key_data(withdrawals, vault_spend_contract)
         } else if redeemer == dataify(ColdCred) {
           must_have_key_data(withdrawals, cold_cred_contract)
-        } else {
+        } else if redeemer == dataify(ColdControl) {
           must_have_key_data(withdrawals, cold_control_contract)
+        } else {
+          must_have_key_data(withdrawals, delete_contract)
         }
       }
       Minting(_) -> {

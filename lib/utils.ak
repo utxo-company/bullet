@@ -276,3 +276,80 @@ fn do_asset_of(val: Pairs<ByteArray, Int>, asset: AssetName) -> Int {
       }
   }
 }
+
+pub fn skip_list_mega_fast(l: List<a>, i: Int) -> List<a> {
+  if i < 4 {
+    skip_list_mega(l, i)
+  } else {
+    l
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> skip_list_mega_fast(i - 4)
+  }
+}
+
+pub fn skip_list_mega(l: List<a>, i: Int) -> List<a> {
+  if i == 0 {
+    l
+  } else {
+    let i = i - 1
+    let l = builtin.tail_list(l)
+
+    if i == 0 {
+      l
+    } else {
+      let i = i - 1
+      let l = builtin.tail_list(l)
+
+      if i == 0 {
+        l
+      } else {
+        builtin.tail_list(l)
+      }
+    }
+  }
+}
+
+const x = [1, 2, 3, 5, 7, 8, 0, 10, 11, 212, 23, 25]
+
+test skip_list_speed_3_s() {
+  ( skip_list_mega_fast(x, 0) |> builtin.head_list ) == 1
+}
+
+test skip_list_speed_4_s() {
+  ( skip_list_mega_fast(x, 1) |> builtin.head_list ) == 2
+}
+
+test skip_list_speed_5_s() {
+  ( skip_list_mega_fast(x, 2) |> builtin.head_list ) == 3
+}
+
+test skip_list_speed_6_s() {
+  ( skip_list_mega_fast(x, 3) |> builtin.head_list ) == 5
+}
+
+test skip_list_speed_7_s() {
+  ( skip_list_mega_fast(x, 4) |> builtin.head_list ) == 7
+}
+
+test skip_list_speed_8_s() {
+  ( skip_list_mega_fast(x, 5) |> builtin.head_list ) == 8
+}
+
+test skip_list_speed_9_s() {
+  ( skip_list_mega_fast(x, 6) |> builtin.head_list ) == 0
+}
+
+test skip_list_speed_1_s() {
+  ( skip_list_mega_fast(x, 8) |> builtin.head_list ) == 11
+}
+
+test skip_list_speed_11_s() {
+  ( skip_list_mega_fast(x, 9) |> builtin.head_list ) == 212
+}
+
+test skip_list_speed_2_s() {
+  ( skip_list_mega_fast(x, 11) |> builtin.head_list ) == 25
+}
