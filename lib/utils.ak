@@ -204,7 +204,7 @@ pub fn dataify(d: Data) -> Data {
 pub fn filter_hot_inputs(
   list: List<Input>,
   address: Address,
-  nonce_address: Address,
+  nonce_cred: Credential,
 ) -> List<OutputReference> {
   when list is {
     [] -> []
@@ -216,21 +216,45 @@ pub fn filter_hot_inputs(
         if datum == InlineDatum(Vault) {
           fail
         } else {
-          [output_reference, ..filter_hot_inputs(xs, address, nonce_address)]
+          [output_reference, ..filter_hot_inputs(xs, address, nonce_cred)]
         }
       } else if or {
         in_address.payment_credential == address.payment_credential,
-        in_address == nonce_address,
+        in_address.payment_credential == nonce_cred,
       } {
         fail
       } else {
-        filter_hot_inputs(xs, address, nonce_address)
+        filter_hot_inputs(xs, address, nonce_cred)
       }
     }
   }
 }
 
 pub fn filter_user_inputs(
+  list: List<Input>,
+  address: Address,
+  nonce_cred: Credential,
+) -> List<OutputReference> {
+  when list is {
+    [] -> []
+    [input, ..xs] -> {
+      let Input(output_reference, Output { address: in_address, .. }) = input
+
+      if in_address == address {
+        [output_reference, ..filter_user_inputs(xs, address, nonce_cred)]
+      } else if or {
+        in_address.payment_credential == address.payment_credential,
+        in_address.payment_credential == nonce_cred,
+      } {
+        fail
+      } else {
+        filter_user_inputs(xs, address, nonce_cred)
+      }
+    }
+  }
+}
+
+pub fn filter_deleting_inputs(
   list: List<Input>,
   address: Address,
   nonce_address: Address,
@@ -240,15 +264,15 @@ pub fn filter_user_inputs(
     [input, ..xs] -> {
       let Input(output_reference, Output { address: in_address, .. }) = input
 
-      if in_address == address {
-        [output_reference, ..filter_hot_inputs(xs, address, nonce_address)]
+      if in_address == address || in_address == nonce_address {
+        [output_reference, ..filter_deleting_inputs(xs, address, nonce_address)]
       } else if or {
         in_address.payment_credential == address.payment_credential,
-        in_address == nonce_address,
+        in_address.payment_credential == nonce_address.payment_credential,
       } {
         fail
       } else {
-        filter_hot_inputs(xs, address, nonce_address)
+        filter_deleting_inputs(xs, address, nonce_address)
       }
     }
   }
@@ -280,13 +304,18 @@ pub fn resolve_user_tx(
       } else if in_address == nonce_address {
         expect Output { value, datum: InlineDatum(datum), .. } = output
 
-        expect Nonce { account_hash, .. } as nonce_state = datum
+        expect nonce_state: Nonce = datum
 
         let expected_value =
           [
             Pair(
               config.bullet_hash,
-              [Pair(bytearray.concat(nonce_prefix, account_hash), 1)],
+              [
+                Pair(
+                  bytearray.concat(nonce_prefix, nonce_state.account_hash),
+                  1,
+                ),
+              ],
             ),
           ]
 

@@ -61,9 +61,16 @@ pub type HotAccountSpend {
   sigs: List<Signature>,
 }
 
-
 pub type AccountSpend {
   user_stake: ScriptHash,
   sigs: List<Signature>,
-  intention_output: Data,
+  index: Data,
+}
+
+pub type ChangeCredentials {
+  control_index: Int,
+  user_stake: ScriptHash,
+  cold_sigs: List<Signature>,
+  new_hot_sigs: List<Signature>,
+  new_cold_sigs: List<Signature>,
 }

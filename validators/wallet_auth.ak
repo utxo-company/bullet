@@ -3,19 +3,18 @@ use aiken/crypto.{ScriptHash, Signature, blake2b_256}
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{InlineDatum, Output, Transaction}
+use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend, Control, Nonce, Vk}
+use types.{AccountSpend, Control, Vk}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, ref_control_datum,
-  resolve_user_tx, skip_list_mega,
+  resolve_user_tx,
 }
-use aiken/primitive/bytearray
-use prefix.{nonce_prefix}
-use cardano/assets.{to_dict}
-use aiken/collection/dict.{to_pairs}
+use validations.{nonce_check}
 
-validator vault_spend {
+/// Action to spend from your wallet UI using a quorum of hot keys
+/// Allows for the spending of vault and nonce utxos
+validator wallet_spend {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
 
@@ -76,37 +75,15 @@ validator vault_spend {
             )
           }
 
-        let nonce_check =
-          when nonce_state is {
-            None -> True
-            Some(Nonce(old_nonce, account_hash)) -> {
-              expect [Output(address, value, InlineDatum(datum), _), ..] =
-                skip_list_mega(outputs, builtin.un_i_data(nonce_output))
-
-              expect Nonce(new_nonce, same_hash) = datum
-
-              let expected_value =
-                [
-                  Pair(
-                    config.bullet_hash,
-                    [Pair(bytearray.concat(nonce_prefix, user_stake), 1)],
-                  ),
-                ]
-
-              expect [_, ..nft_value] = value |> to_dict |> to_pairs
-
-              and {
-                (new_nonce > old_nonce)?,
-                (account_hash == same_hash)?,
-                (dataify(expected_value) == dataify(nft_value))?,
-                (address == expected_nonce_address)?,
-              }
-            }
-          }
-
         and {
           cred_check?,
-          nonce_check?,
+          nonce_check(
+            outputs,
+            nonce_state,
+            nonce_output,
+            user_stake,
+            expected_nonce_address,
+          )?,
         }
       }
       Publishing(_, RegisterCredential { .. }) -> True

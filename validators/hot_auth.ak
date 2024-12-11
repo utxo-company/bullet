@@ -1,48 +1,61 @@
 use aiken/builtin
-use aiken/crypto.{Signature, blake2b_256}
-use cardano/address.{Credential, Script}
+use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use cardano/address.{Address, Credential, Inline, Script}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{Control, Vk}
-use utils.{check_tx_observed, check_valid_vk_sigs, dataify, ref_control_datum}
+use types.{Control, HotAccountSpend, Vk}
+use utils.{
+  check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
+  ref_control_datum,
+}
 
-/// Validates user signed stake actions in the tx
-validator proxy_stake {
+/// Action to spend from your vault using a quorum of hot keys
+validator hot_spend {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
 
     when info is {
       Withdrawing(_) -> {
         let Transaction {
+          inputs,
           reference_inputs,
           outputs,
           withdrawals,
           extra_signatories,
-          certificates,
-          votes,
           ..
         } = tx
 
-        expect (Script(user_hash), sigs): (Credential, List<Signature>) =
-          redeemer
+        let outputs = dataify(outputs)
 
-        let expected_nft = [Pair(config.bullet_hash, [Pair(user_hash, 1)])]
+        expect HotAccountSpend { user_stake, sigs } = redeemer
+
+        let expected_address =
+          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
+
+        let expected_nonce_cred = Script(config.nonce_bullet_hash)
+
+        let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
         expect Control { quorum, hot_cred, hot_cred_hash, .. } =
           reference_inputs
             |> ref_control_datum(expected_nft)
 
         expect quorum: Int = quorum
+
         expect hot_cred_hash: List<Credential> = hot_cred_hash
+
+        let inputs_spent =
+          filter_hot_inputs(inputs, expected_address, expected_nonce_cred)
 
         if hot_cred == dataify([]) {
           check_tx_observed(hot_cred_hash, extra_signatories, withdrawals) >= quorum
         } else {
           expect hot_cred: List<Vk> = hot_cred
+
           let message =
-            (outputs, withdrawals, certificates, votes)
+            (inputs_spent, outputs)
               |> builtin.serialise_data()
               |> blake2b_256()
 
@@ -59,9 +72,9 @@ validator proxy_stake {
   }
 }
 
-validator proxy_stake_types {
+validator hot_spend_types {
   withdraw(
-    _signatures: (Credential, List<Signature>),
+    _signatures: (ScriptHash, List<Signature>),
     _account: Credential,
     _tx: Transaction,
   ) {

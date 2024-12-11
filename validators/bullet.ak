@@ -9,7 +9,8 @@ use cardano/script_context.{
   Minting, Publishing, ScriptContext, Spending, Voting, Withdrawing,
 }
 use cardano/transaction.{
-  InlineDatum, Output, OutputReference, Transaction, Withdraw,
+  InlineDatum, Output, OutputReference, Redeemer, ScriptPurpose, Transaction,
+  Withdraw,
 }
 use config
 use prefix.{nonce_prefix}
@@ -33,10 +34,13 @@ validator true_stake_bullet {
   }
 }
 
-fn check_for_stake_proxy(tx: Transaction, credential: Data) {
+fn check_for_stake_proxy(
+  redeemers: Pairs<ScriptPurpose, Redeemer>,
+  credential: Data,
+) {
   let proxy_cred = Withdraw(Script(config.stake_proxy_hash))
 
-  let redeemer = must_find_key(tx.redeemers, proxy_cred)
+  let redeemer = must_find_key(redeemers, proxy_cred)
 
   expect [cred, ..] = builtin.un_list_data(redeemer)
 
@@ -94,10 +98,15 @@ validator stake_bullet {
         _ -> fail
       }
 
+    let Transaction {
+      inputs,
+      outputs,
+      withdrawals,
+      extra_signatories,
+      redeemers,
+      ..
+    } = tx
     if redeemer == dataify(Setup) {
-      let Transaction { inputs, outputs, withdrawals, extra_signatories, .. } =
-        tx
-
       let one_shot_ref =
         config.new_user_tx_hash
           |> OutputReference(config.new_user_output_index)
@@ -174,7 +183,7 @@ validator stake_bullet {
         check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals)?,
       }
     } else {
-      check_for_stake_proxy(tx, cred)
+      check_for_stake_proxy(redeemers, cred)
     }
   }
 }
@@ -262,18 +271,17 @@ validator nonce_bullet {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, .. } = sc
 
+    let Transaction { inputs, withdrawals, redeemers, .. } = tx
+
     when info is {
       Spending { datum, output } ->
         if datum == None {
           let input =
-            must_find_item(
-              tx.inputs,
-              fn(inp) { inp.output_reference == output },
-            )
+            must_find_item(inputs, fn(inp) { inp.output_reference == output })
           expect Some(Inline(cred)) = input.output.address.stake_credential
-          check_for_stake_proxy(tx, cred)
+          check_for_stake_proxy(redeemers, cred)
         } else {
-          check_for_proxy(tx.withdrawals, Script(config.proxy_hash))
+          check_for_proxy(withdrawals, Script(config.proxy_hash))
         }
 
       _ -> fail

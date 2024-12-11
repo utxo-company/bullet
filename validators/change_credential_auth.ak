@@ -1,14 +1,15 @@
 use aiken/builtin
-use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use aiken/collection/dict.{to_pairs}
+use aiken/crypto.{blake2b_256}
 use cardano/address.{Address, Credential, Inline, Script}
-use cardano/assets.{from_asset, without_lovelace}
+use cardano/assets.{to_dict}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{InlineDatum, Output, Transaction}
 use config
-use types.{AccountState, Control, Vk}
+use types.{AccountState, ChangeCredentials, Control, Vk}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, filter_user_inputs,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, filter_user_inputs,
   ref_control_datum,
 }
 
@@ -20,6 +21,7 @@ fn pop_to_index(list: List<a>, index: Int) -> List<a> {
   }
 }
 
+/// Changes owner credentials, allowing for rotating credentials
 validator cold_control {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
@@ -29,24 +31,21 @@ validator cold_control {
         let Transaction { inputs, outputs, withdrawals, extra_signatories, .. } =
           tx
 
-        expect (
+        expect ChangeCredentials(
           control_index,
           user_stake,
           cold_sigs,
           new_hot_sigs,
           new_cold_sigs,
-        ): (Int, ScriptHash, List<Signature>, List<Signature>, List<Signature>) =
-          redeemer
+        ) = redeemer
 
-        let stake_key = Some(Inline(Script(user_stake)))
+        let expected_address =
+          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
 
-        let expected_address = Address(Script(config.bullet_hash), stake_key)
-
-        let expected_nonce_address =
-          Address(Script(config.nonce_bullet_hash), stake_key)
+        let expected_nonce_cred = Script(config.nonce_bullet_hash)
 
         let inputs_spent =
-          filter_user_inputs(inputs, expected_address, expected_nonce_address)
+          filter_user_inputs(inputs, expected_address, expected_nonce_cred)
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -66,7 +65,9 @@ validator cold_control {
         expect [Output { address, value, datum: InlineDatum(datum), .. }, ..] =
           outputs
 
-        let expected_value = from_asset(config.bullet_hash, user_stake, 1)
+        let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
+
+        expect [_, ..nft_value] = value |> to_dict |> to_pairs
 
         expect AccountState {
           quorum: out_quorum,
@@ -79,7 +80,7 @@ validator cold_control {
         and {
           check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals),
           check_all_valid_vk_sigs(cold_cred, cold_sigs, message),
-          without_lovelace(value) == expected_value,
+          dataify(nft_value) == dataify(expected_nft),
           address == expected_address,
           out_quorum > 0,
           check_all_valid_vk_sigs(out_hot_cred, new_hot_sigs, message),
@@ -104,13 +105,7 @@ validator cold_control {
 
 validator cold_control_types {
   withdraw(
-    _signatures: (
-      Int,
-      ScriptHash,
-      List<Signature>,
-      List<Signature>,
-      List<Signature>,
-    ),
+    _signatures: ChangeCredentials,
     _account: Credential,
     _tx: Transaction,
   ) {

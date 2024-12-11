@@ -1,19 +1,16 @@
 use aiken/builtin
-use aiken/collection/dict.{to_pairs}
 use aiken/crypto.{ScriptHash, Signature, blake2b_256}
-use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Inline, Script}
-use cardano/assets.{to_dict}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{InlineDatum, Output, Transaction}
+use cardano/transaction.{Transaction}
 use config
-use prefix.{nonce_prefix}
-use types.{AccountSpend, Control, Nonce, Vk}
+use types.{AccountSpend, Control, Vk}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, ref_control_datum,
-  resolve_user_tx, skip_list_mega,
+  resolve_user_tx,
 }
+use validations.{nonce_check}
 
 /// Action to spend from your utxos using all your cold keys
 validator cold_spend {
@@ -81,37 +78,15 @@ validator cold_spend {
             ) && check_all_valid_vk_sigs(cold_cred, sigs, message)
           }
 
-        let nonce_check =
-          when nonce_state is {
-            None -> True
-            Some(Nonce(old_nonce, account_hash)) -> {
-              expect [Output(address, value, InlineDatum(datum), _), ..] =
-                skip_list_mega(outputs, builtin.un_i_data(nonce_output))
-
-              expect Nonce(new_nonce, same_hash) = datum
-
-              let expected_value =
-                [
-                  Pair(
-                    config.bullet_hash,
-                    [Pair(bytearray.concat(nonce_prefix, user_stake), 1)],
-                  ),
-                ]
-
-              expect [_, ..nft_value] = value |> to_dict |> to_pairs
-
-              and {
-                (new_nonce > old_nonce)?,
-                (account_hash == same_hash)?,
-                (dataify(expected_value) == dataify(nft_value))?,
-                (address == expected_nonce_address)?,
-              }
-            }
-          }
-
         and {
           cred_check?,
-          nonce_check?,
+          nonce_check(
+            outputs,
+            nonce_state,
+            nonce_output,
+            user_stake,
+            expected_nonce_address,
+          )?,
         }
       }
 

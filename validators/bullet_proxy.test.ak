@@ -3,7 +3,7 @@ use cardano/assets.{zero}
 use cardano/script_context.{Minting, ScriptContext}
 use cardano/transaction.{Input, NoDatum, Output, OutputReference, Transaction}
 use config
-use proxy
+use bullet_proxy
 
 test can_setup_stake() {
   let one_shot_ref =
@@ -18,7 +18,7 @@ test can_setup_stake() {
 
   let sc = ScriptContext(tx, 0, Minting("POKAMON"))
 
-  proxy.proxy_spend.else(sc)
+  bullet_proxy.proxy_spend.else(sc)
 }
 
 test cant_setup_stake_twice() {
@@ -34,5 +34,5 @@ test cant_setup_stake_twice() {
 
   let sc = ScriptContext(tx, 0, Minting("POKAMON"))
 
-  !proxy.proxy_spend.else(sc)
+  !bullet_proxy.proxy_spend.else(sc)
 }
