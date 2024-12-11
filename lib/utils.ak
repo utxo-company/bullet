@@ -1,12 +1,12 @@
 use aiken/builtin
 use aiken/collection/dict.{Dict, to_pairs}
 use aiken/crypto.{
-  Signature, VerificationKeyHash, verify_ecdsa_signature,
+  Signature, VerificationKey, VerificationKeyHash, verify_ecdsa_signature,
   verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
-use cardano/address.{Address, Credential, Script, VerificationKey}
-use cardano/assets.{AssetName, Lovelace, PolicyId, Value, to_dict}
+use cardano/address.{Address, Credential}
+use cardano/assets.{AssetName, PolicyId, Value, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use config
 use prefix.{nonce_prefix}
@@ -26,6 +26,32 @@ pub fn must_have(list: List<a>, item: a) -> Bool {
   expect [x, ..rest] = list
 
   x == item || must_have(rest, item)
+}
+
+pub fn must_have_key(list: Pairs<a, b>, item: a) -> Bool {
+  expect [Pair(x, _), ..rest] = list
+
+  x == item || must_have_key(rest, item)
+}
+
+pub fn must_take_until(list: List<a>, item: a) -> List<a> {
+  expect [first, ..rest] = list
+
+  if item == first {
+    rest
+  } else {
+    must_take_until(rest, item)
+  }
+}
+
+pub fn must_take_key_until(list: List<Pair<a, b>>, key: a) -> List<Pair<a, b>> {
+  expect [Pair(key2, _), ..rest] = list
+
+  if key == key2 {
+    rest
+  } else {
+    must_take_key_until(rest, key)
+  }
 }
 
 pub fn must_find_item(list: List<a>, predicate: fn(a) -> Bool) -> a {
@@ -103,27 +129,17 @@ pub fn check_valid_vk_sigs(
 }
 
 pub fn check_tx_observed(
-  vkhs: List<Credential>,
+  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
   signatories: List<VerificationKeyHash>,
-  withdrawals: Pairs<Credential, Lovelace>,
 ) -> Int {
   when vkhs is {
     [] -> 0
-    [vkh, ..rest] ->
-      when vkh is {
-        VerificationKey(vkh) ->
-          1 + (
-            signatories
-              |> must_take_until(vkh)
-              |> check_tx_observed(rest, _, withdrawals)
-          )
-        Script(_) as sc ->
-          1 + (
-            withdrawals
-              |> must_take_key_until(sc)
-              |> check_tx_observed(rest, signatories, _)
-          )
-      }
+    [Pair(vkh, _vk), ..rest] ->
+      1 + (
+        signatories
+          |> must_take_until(vkh)
+          |> check_tx_observed(rest, _)
+      )
   }
 }
 
@@ -157,43 +173,32 @@ pub fn check_all_valid_vk_sigs(
 }
 
 pub fn check_all_tx_observed(
-  vkhs: List<Credential>,
+  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
   signatories: List<VerificationKeyHash>,
-  withdrawals: Pairs<Credential, Lovelace>,
 ) -> Bool {
   when vkhs is {
     [] -> True
-    [vkh, ..rest] ->
-      when vkh is {
-        VerificationKey(vkh) ->
-          signatories
-            |> must_take_until(vkh)
-            |> check_all_tx_observed(rest, _, withdrawals)
-        Script(_) as sc ->
-          withdrawals
-            |> must_take_key_until(sc)
-            |> check_all_tx_observed(rest, signatories, _)
-      }
+    [Pair(vkh, _), ..rest] ->
+      signatories
+        |> must_take_until(vkh)
+        |> check_all_tx_observed(rest, _)
   }
 }
 
-pub fn must_take_until(list: List<a>, item: a) -> List<a> {
-  expect [first, ..rest] = list
+/// Same as above, but also check hashes match vk
+pub fn check_all_tx_observed_and_hashes(
+  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
+  signatories: List<VerificationKeyHash>,
+) -> Bool {
+  when vkhs is {
+    [] -> True
+    [Pair(vkh, vk), ..rest] -> {
+      expect builtin.blake2b_224(vk) == vkh
 
-  if item == first {
-    rest
-  } else {
-    must_take_until(rest, item)
-  }
-}
-
-pub fn must_take_key_until(list: List<Pair<a, b>>, key: a) -> List<Pair<a, b>> {
-  expect [Pair(key2, _), ..rest] = list
-
-  if key == key2 {
-    rest
-  } else {
-    must_take_key_until(rest, key)
+      signatories
+        |> must_take_until(vkh)
+        |> check_all_tx_observed_and_hashes(rest, _)
+    }
   }
 }
 

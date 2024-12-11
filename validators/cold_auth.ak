@@ -5,10 +5,11 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend, Control, Vk}
+use types.{AccountSpend,
+  BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, ref_control_datum,
-  resolve_user_tx,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key,
+  ref_control_datum, resolve_user_tx,
 }
 use validations.{nonce_check}
 
@@ -36,7 +37,7 @@ validator cold_spend {
           reference_inputs
             |> ref_control_datum(expected_nft)
 
-        expect cold_cred_hash: List<Credential> = cold_cred_hash
+        expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let stake_key = Some(Inline(Script(user_stake)))
 
@@ -58,28 +59,29 @@ validator cold_spend {
           )
 
         let cred_check =
-          if cold_cred == dataify([]) {
-            check_all_tx_observed(
-              cold_cred_hash,
-              extra_signatories,
-              withdrawals,
-            )
-          } else {
-            expect cold_cred: List<Vk> = cold_cred
-            let message =
-              (inputs_spent, outputs)
-                |> builtin.serialise_data()
-                |> blake2b_256()
+          when cold_cred_hash is {
+            Verification(vks) ->
+              if cold_cred == dataify([]) {
+                check_all_tx_observed(vks, extra_signatories)?
+              } else {
+                expect cold_cred: List<Vk> = cold_cred
 
-            check_all_tx_observed(
-              cold_cred_hash,
-              extra_signatories,
-              withdrawals,
-            ) && check_all_valid_vk_sigs(cold_cred, sigs, message)
+                let message =
+                  (inputs_spent, outputs)
+                    |> builtin.serialise_data()
+                    |> blake2b_256()
+
+                check_all_tx_observed(vks, extra_signatories)? && check_all_valid_vk_sigs(
+                  cold_cred,
+                  sigs,
+                  message,
+                )?
+              }
+            Withdrawal(sc) -> must_have_key(withdrawals, sc)?
           }
 
         and {
-          cred_check?,
+          cred_check,
           nonce_check(
             outputs,
             nonce_state,
@@ -89,7 +91,6 @@ validator cold_spend {
           )?,
         }
       }
-
       Publishing(_, RegisterCredential { .. }) -> True
       _ -> fail
     }

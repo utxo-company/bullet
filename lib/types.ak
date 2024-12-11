@@ -1,4 +1,4 @@
-use aiken/crypto.{Blake2b_256, Hash, ScriptHash, Signature, VerificationKey}
+use aiken/crypto.{Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash}
 use cardano/address.{Credential}
 
 pub type MessageHash =
@@ -18,21 +18,26 @@ pub type ProxyAction {
   Delete
 }
 
+pub type BulletCredential {
+  Verification(Pairs<VerificationKeyHash, VerificationKey>)
+  Withdrawal(Credential)
+}
+
 pub type AccountState {
   quorum: Int,
   hot_cred: List<Vk>,
-  hot_cred_hash: List<Credential>,
+  hot_cred_hash: BulletCredential,
   cold_cred: List<Vk>,
-  cold_cred_hash: List<Credential>,
+  cold_cred_hash: BulletCredential,
 }
 
 pub type UtxoStates {
   Control {
     quorum: Data<Int>,
     hot_cred: Data<List<Vk>>,
-    hot_cred_hash: Data<List<Credential>>,
+    hot_cred_hash: Data<BulletCredential>,
     cold_cred: Data<List<Vk>>,
-    cold_cred_hash: Data<List<Credential>>,
+    cold_cred_hash: Data<BulletCredential>,
   }
   ParallelNonce
   Vault
@@ -44,11 +49,12 @@ pub type Nonce {
 }
 
 pub type ProxyState {
-  hot_cred_contract: Credential,
-  intention_contract: Credential,
-  vault_spend_contract: Credential,
-  cold_cred_contract: Credential,
-  cold_control_contract: Credential,
+  hot_auth_contract: Credential,
+  intent_auth_contract: Credential,
+  wallet_auth_contract: Credential,
+  cold_auth_contract: Credential,
+  change_auth_contract: Credential,
+  delete_auth_contract: Credential,
 }
 
 pub type Vk {

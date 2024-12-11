@@ -5,10 +5,12 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{Control, HotAccountSpend, Vk}
+use types.{
+  BulletCredential, Control, HotAccountSpend, Verification, Vk, Withdrawal,
+}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
-  ref_control_datum,
+  must_have_key, ref_control_datum,
 }
 
 /// Action to spend from your vault using a quorum of hot keys
@@ -44,28 +46,33 @@ validator hot_spend {
 
         expect quorum: Int = quorum
 
-        expect hot_cred_hash: List<Credential> = hot_cred_hash
+        expect hot_cred_hash: BulletCredential = hot_cred_hash
 
         let inputs_spent =
           filter_hot_inputs(inputs, expected_address, expected_nonce_cred)
 
-        if hot_cred == dataify([]) {
-          check_tx_observed(hot_cred_hash, extra_signatories, withdrawals) >= quorum
-        } else {
-          expect hot_cred: List<Vk> = hot_cred
+        when hot_cred_hash is {
+          Verification(vks) ->
+            if hot_cred == dataify([]) {
+              (check_tx_observed(vks, extra_signatories) >= quorum)?
+            } else {
+              expect hot_cred: List<Vk> = hot_cred
 
-          let message =
-            (inputs_spent, outputs)
-              |> builtin.serialise_data()
-              |> blake2b_256()
+              let message =
+                (inputs_spent, outputs)
+                  |> builtin.serialise_data()
+                  |> blake2b_256()
 
-          check_tx_observed(hot_cred_hash, extra_signatories, withdrawals) + check_valid_vk_sigs(
-            hot_cred,
-            sigs,
-            message,
-          ) >= quorum
+              (check_tx_observed(vks, extra_signatories) + check_valid_vk_sigs(
+                hot_cred,
+                sigs,
+                message,
+              ) >= quorum)?
+            }
+          Withdrawal(sc) -> must_have_key(withdrawals, sc)?
         }
       }
+
       Publishing(_, RegisterCredential { .. }) -> True
       _ -> fail
     }

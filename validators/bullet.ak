@@ -14,10 +14,10 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Nonce, Setup, StakeActions}
+use types.{AccountState, Nonce, Setup, StakeActions, Verification, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_find_item,
-  must_find_key, must_have,
+  check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
+  must_find_item, must_find_key, must_have, must_have_key,
 }
 
 // UserAccount =
@@ -168,6 +168,17 @@ validator stake_bullet {
 
       expect [_, ..rest_nonce] = nonce_value |> to_dict |> to_pairs
 
+      let check_keys_and_hashes =
+        fn(bullet_credential, creds, sigs) {
+          when bullet_credential is {
+            Verification(vks) -> and {
+                check_all_valid_vk_sigs(creds, sigs, one_shot_message)?,
+                check_all_tx_observed_and_hashes(vks, extra_signatories)?,
+              }
+            Withdrawal(sc) -> must_have_key(withdrawals, sc)?
+          }
+        }
+
       and {
         any(inputs, fn(input) { input.output_reference == one_shot_ref })?,
         // Check for account state is setup correctly
@@ -177,10 +188,8 @@ validator stake_bullet {
         (nonce_addr == expected_nonce_address)?,
         (dataify(Nonce(1, own_hash)) == nonce_datum)?,
         (quorum > 0)?,
-        check_all_valid_vk_sigs(hot_cred, hot_sigs, one_shot_message)?,
-        check_all_valid_vk_sigs(cold_cred, cold_sigs, one_shot_message)?,
-        check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals)?,
-        check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals)?,
+        check_keys_and_hashes(hot_cred_hash, hot_cred, hot_sigs)?,
+        check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs)?,
       }
     } else {
       check_for_stake_proxy(redeemers, cred)

@@ -5,9 +5,9 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend, Control, Vk}
+use types.{AccountSpend, BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, ref_control_datum,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key, ref_control_datum,
   resolve_user_tx,
 }
 use validations.{nonce_check}
@@ -37,7 +37,7 @@ validator wallet_spend {
           reference_inputs
             |> ref_control_datum(expected_nft)
 
-        expect hot_cred_hash: List<Credential> = hot_cred_hash
+        expect hot_cred_hash: BulletCredential = hot_cred_hash
 
         let stake_key = Some(Inline(Script(user_stake)))
 
@@ -58,25 +58,32 @@ validator wallet_spend {
             None,
           )
 
-        let cred_check =
-          if hot_cred == dataify([]) {
-            check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals)
-          } else {
-            expect hot_cred: List<Vk> = hot_cred
-            let message =
-              (inputs_spent, outputs)
-                |> builtin.serialise_data()
-                |> blake2b_256()
+        let cred_check = 
+        when hot_cred_hash is {
+            Verification(vks) ->
+              if hot_cred == dataify([]) {
+                check_all_tx_observed(vks, extra_signatories)?
+              } else {
+                expect hot_cred: List<Vk> = hot_cred
 
-            check_all_tx_observed(hot_cred_hash, extra_signatories, withdrawals) && check_all_valid_vk_sigs(
-              hot_cred,
-              sigs,
-              message,
-            )
+                let message =
+                  (inputs_spent, outputs)
+                    |> builtin.serialise_data()
+                    |> blake2b_256()
+
+                check_all_tx_observed(vks, extra_signatories)? && check_all_valid_vk_sigs(
+                  hot_cred,
+                  sigs,
+                  message,
+                )?
+              }
+            Withdrawal(sc) -> must_have_key(withdrawals, sc)?
           }
 
+
+
         and {
-          cred_check?,
+          cred_check,
           nonce_check(
             outputs,
             nonce_state,

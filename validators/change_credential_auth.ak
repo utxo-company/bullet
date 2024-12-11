@@ -7,9 +7,13 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{InlineDatum, Output, Transaction}
 use config
-use types.{AccountState, ChangeCredentials, Control, Vk}
+use types.{
+  AccountState, BulletCredential, ChangeCredentials, Control, Verification, Vk,
+  Withdrawal,
+}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, filter_user_inputs,
+  check_all_tx_observed, check_all_tx_observed_and_hashes,
+  check_all_valid_vk_sigs, dataify, filter_user_inputs, must_have_key,
   ref_control_datum,
 }
 
@@ -55,7 +59,7 @@ validator cold_control {
             |> ref_control_datum(expected_nft)
 
         expect cold_cred: List<Vk> = cold_cred
-        expect cold_cred_hash: List<Credential> = cold_cred_hash
+        expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let message =
           (inputs_spent, outputs)
@@ -77,24 +81,28 @@ validator cold_control {
           cold_cred_hash: out_cold_cred_hash,
         } = datum
 
+        let check_keys_and_hashes =
+          fn(bullet_credential, creds, sigs, check_hash) {
+            when bullet_credential is {
+              Verification(vks) -> and {
+                  check_all_valid_vk_sigs(creds, sigs, message)?,
+                  if check_hash {
+                    check_all_tx_observed_and_hashes(vks, extra_signatories)?
+                  } else {
+                    check_all_tx_observed(vks, extra_signatories)?
+                  },
+                }
+              Withdrawal(sc) -> must_have_key(withdrawals, sc)?
+            }
+          }
+
         and {
-          check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals),
-          check_all_valid_vk_sigs(cold_cred, cold_sigs, message),
+          check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs, False)?,
           dataify(nft_value) == dataify(expected_nft),
           address == expected_address,
           out_quorum > 0,
-          check_all_valid_vk_sigs(out_hot_cred, new_hot_sigs, message),
-          check_all_valid_vk_sigs(out_cold_cred, new_cold_sigs, message),
-          check_all_tx_observed(
-            out_hot_cred_hash,
-            extra_signatories,
-            withdrawals,
-          ),
-          check_all_tx_observed(
-            out_cold_cred_hash,
-            extra_signatories,
-            withdrawals,
-          ),
+          check_keys_and_hashes(out_hot_cred_hash, out_hot_cred, new_hot_sigs, True)?,
+          check_keys_and_hashes(out_cold_cred_hash, out_cold_cred, new_cold_sigs, True)?,
         }
       }
       Publishing(_, RegisterCredential { .. }) -> True

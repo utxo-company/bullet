@@ -1,9 +1,8 @@
+use bullet_proxy
 use cardano/address.{Address, Script}
 use cardano/assets.{zero}
-use cardano/script_context.{Minting, ScriptContext}
 use cardano/transaction.{Input, NoDatum, Output, OutputReference, Transaction}
 use config
-use bullet_proxy
 
 test can_setup_stake() {
   let one_shot_ref =
@@ -16,9 +15,7 @@ test can_setup_stake() {
 
   let tx = Transaction { ..transaction.placeholder, inputs: [input] }
 
-  let sc = ScriptContext(tx, 0, Minting("POKAMON"))
-
-  bullet_proxy.proxy_spend.else(sc)
+  bullet_proxy.one_shot_proxy_mint.mint(0, "POKAMON", tx)
 }
 
 test cant_setup_stake_twice() {
@@ -32,7 +29,5 @@ test cant_setup_stake_twice() {
 
   let tx = Transaction { ..transaction.placeholder, inputs: [input] }
 
-  let sc = ScriptContext(tx, 0, Minting("POKAMON"))
-
-  !bullet_proxy.proxy_spend.else(sc)
+  !bullet_proxy.one_shot_proxy_mint.mint(0, "POKAMON", tx)
 }
