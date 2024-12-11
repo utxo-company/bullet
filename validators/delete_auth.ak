@@ -1,6 +1,6 @@
 use aiken/builtin
 use aiken/collection/dict.{to_pairs}
-use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use aiken/crypto.{blake2b_256}
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{to_dict}
 use cardano/certificate.{RegisterCredential}
@@ -79,7 +79,7 @@ validator delete_account {
           check_all_tx_observed(cold_cred_hash, extra_signatories, withdrawals),
           check_all_valid_vk_sigs(cold_cred, sigs, message),
           name == user_stake,
-          quantity == -1
+          quantity == -1,
         }
       }
       Publishing(_, RegisterCredential { .. }) -> True
@@ -89,17 +89,7 @@ validator delete_account {
 }
 
 validator cold_control_types {
-  withdraw(
-    _signatures: (
-      Int,
-      ScriptHash,
-      List<Signature>,
-      List<Signature>,
-      List<Signature>,
-    ),
-    _account: Credential,
-    _tx: Transaction,
-  ) {
+  withdraw(_signatures: AccountSpend, _account: Credential, _tx: Transaction) {
     fail
   }
 

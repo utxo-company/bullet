@@ -31,13 +31,13 @@ validator cold_control {
         let Transaction { inputs, outputs, withdrawals, extra_signatories, .. } =
           tx
 
-        expect ChangeCredentials(
+        expect ChangeCredentials {
           control_index,
           user_stake,
           cold_sigs,
           new_hot_sigs,
           new_cold_sigs,
-        ) = redeemer
+        } = redeemer
 
         let expected_address =
           Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))

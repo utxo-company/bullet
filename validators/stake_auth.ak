@@ -1,11 +1,11 @@
 use aiken/builtin
-use aiken/crypto.{Signature, blake2b_256}
+use aiken/crypto.{blake2b_256}
 use cardano/address.{Credential, Script}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{Control, Vk}
+use types.{Control, HotAccountStake, Vk}
 use utils.{check_tx_observed, check_valid_vk_sigs, dataify, ref_control_datum}
 
 /// Validates user signed stake actions in the tx
@@ -25,8 +25,7 @@ validator wallet_stake {
           ..
         } = tx
 
-        expect (Script(user_hash), sigs): (Credential, List<Signature>) =
-          redeemer
+        expect HotAccountStake(Script(user_hash), sigs) = redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_hash, 1)])]
 
@@ -60,11 +59,7 @@ validator wallet_stake {
 }
 
 validator proxy_stake_types {
-  withdraw(
-    _signatures: (Credential, List<Signature>),
-    _account: Credential,
-    _tx: Transaction,
-  ) {
+  withdraw(_signatures: HotAccountStake, _account: Credential, _tx: Transaction) {
     fail
   }
 

@@ -61,6 +61,11 @@ pub type HotAccountSpend {
   sigs: List<Signature>,
 }
 
+pub type HotAccountStake{
+  user_stake: Credential,
+  sigs: List<Signature>,
+}
+
 pub type AccountSpend {
   user_stake: ScriptHash,
   sigs: List<Signature>,

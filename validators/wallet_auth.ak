@@ -1,5 +1,5 @@
 use aiken/builtin
-use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use aiken/crypto.{blake2b_256}
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
@@ -94,11 +94,7 @@ validator wallet_spend {
 
 /// Allows spending from your vault or other utxos using all your hot keys
 validator vault_spend_types {
-  withdraw(
-    _signatures: (ScriptHash, List<Signature>),
-    _account: Credential,
-    _tx: Transaction,
-  ) {
+  withdraw(_signatures: AccountSpend, _account: Credential, _tx: Transaction) {
     fail
   }
 
