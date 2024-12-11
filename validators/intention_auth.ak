@@ -5,16 +5,17 @@
 use aiken/builtin
 use aiken/collection/list.{all}
 use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Input, Output, OutputReference, Transaction}
 use config
-use types.{Control, Vk}
+use types.{BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
-  ref_control_datum,
+  must_have_key, ref_control_datum,
 }
 
 type Constraint {
@@ -47,6 +48,14 @@ type Red {
   red2: RefCredentialOrder,
 }
 
+fn validate_signatures(
+  hot_cred: BulletCredential,
+  hot_cred_hash,
+  sig_message_list,
+) {
+  todo
+}
+
 /// > [!IMPORTANT]
 /// > Withdrawals are ordered by ascending [Credential](./credential.html#Credential). Yet, note that [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
 /// > [!IMPORTANT]
@@ -61,6 +70,7 @@ fn fold_over_ref_creds(
   // We offset to outputs related to change and nonces
   // The earlier outputs would be related to other dApps or intents
   offset_outputs: List<Output>,
+  withdrawals: Pairs<Credential, Int>,
   constraint_validator,
 ) {
   when ref_creds is {
@@ -74,7 +84,7 @@ fn fold_over_ref_creds(
 
       expect quorum: Int = quorum
 
-      expect hot_cred_hash: List<Credential> = hot_cred_hash
+      expect hot_cred_hash: BulletCredential = hot_cred_hash
 
       expect [
         SignedIntention {
@@ -86,12 +96,40 @@ fn fold_over_ref_creds(
         ..rest_intents
       ] = intentions
 
-      expect constraints |> all(constraint_validator)
+      expect (constraints |> all(constraint_validator))?
 
-      if additional_intents == 0 {
-        todo
-      } else {
-        todo
+      when hot_cred_hash is {
+        Withdrawal(sc) -> {
+          expect must_have_key(withdrawals, sc)?
+
+          if additional_intents == 0 {
+            // Deal with only a single value leaving and nonce
+            todo
+          } else {
+            // Recursive function to get the remaining value leaving and nonces
+            todo
+          }
+        }
+        Verification(vks) -> {
+          let message =
+            builtin.serialise_data(intent)
+              |> bytearray.concat(prefix, _)
+              |> bytearray.concat(postfix)
+              |> builtin.blake2b_256
+
+          if additional_intents == 0 {
+            expect
+              validate_signatures(
+                hot_cred_hash,
+                hot_cred,
+                [Pair(message, signatures)],
+              )
+
+            todo
+          } else {
+            todo
+          }
+        }
       }
     }
   }

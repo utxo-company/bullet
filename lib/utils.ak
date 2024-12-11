@@ -1,8 +1,8 @@
 use aiken/builtin
 use aiken/collection/dict.{Dict, to_pairs}
 use aiken/crypto.{
-  Signature, VerificationKey, VerificationKeyHash, verify_ecdsa_signature,
-  verify_schnorr_signature,
+  Blake2b_224, Hash, Signature, VerificationKey, VerificationKeyHash,
+  verify_ecdsa_signature, verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
 use cardano/address.{Address, Credential}
@@ -462,4 +462,13 @@ test skip_list_speed_11_s() {
 
 test skip_list_speed_2_s() {
   ( skip_list_mega_fast(x, 11) |> builtin.head_list ) == 25
+}
+
+/// Produce a plutusV3 script hash to match the onchain comparison 
+/// with script ref field in Output
+pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
+  bytearray.concat(#"03582401010048811c", bytes)
+    |> bytearray.concat(#"0001")
+    |> builtin.blake2b_224
+    |> Some
 }
