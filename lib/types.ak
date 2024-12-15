@@ -1,4 +1,6 @@
-use aiken/crypto.{Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash}
+use aiken/crypto.{
+  Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash,
+}
 use cardano/address.{Credential}
 
 pub type MessageHash =
@@ -67,7 +69,7 @@ pub type HotAccountSpend {
   sigs: List<Signature>,
 }
 
-pub type HotAccountStake{
+pub type HotAccountStake {
   user_stake: Credential,
   sigs: List<Signature>,
 }

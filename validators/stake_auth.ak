@@ -5,8 +5,13 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{BulletCredential, Control, HotAccountStake, Verification, Vk, Withdrawal}
-use utils.{check_tx_observed, check_valid_vk_sigs, dataify, must_have_key, ref_control_datum}
+use types.{
+  BulletCredential, Control, HotAccountStake, Verification, Vk, Withdrawal,
+}
+use utils.{
+  check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
+  ref_control_datum,
+}
 
 /// Validates user signed stake actions in the tx
 validator wallet_stake {
@@ -18,6 +23,7 @@ validator wallet_stake {
         let Transaction {
           reference_inputs,
           outputs,
+          fee,
           withdrawals,
           extra_signatories,
           certificates,
@@ -44,7 +50,7 @@ validator wallet_stake {
               expect hot_cred: List<Vk> = hot_cred
 
               let message =
-                ( outputs, withdrawals, certificates, votes)
+                (outputs, fee, withdrawals, certificates, votes)
                   |> builtin.serialise_data()
                   |> blake2b_256()
 

@@ -5,10 +5,11 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend, BulletCredential, Control, Verification, Vk, Withdrawal}
+use types.{AccountSpend,
+  BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key, ref_control_datum,
-  resolve_user_tx,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key,
+  ref_control_datum, resolve_user_tx,
 }
 use validations.{nonce_check}
 
@@ -24,6 +25,7 @@ validator wallet_spend {
           inputs,
           reference_inputs,
           outputs,
+          fee,
           withdrawals,
           extra_signatories,
           ..
@@ -58,8 +60,8 @@ validator wallet_spend {
             None,
           )
 
-        let cred_check = 
-        when hot_cred_hash is {
+        let cred_check =
+          when hot_cred_hash is {
             Verification(vks) ->
               if hot_cred == dataify([]) {
                 check_all_tx_observed(vks, extra_signatories)?
@@ -67,7 +69,7 @@ validator wallet_spend {
                 expect hot_cred: List<Vk> = hot_cred
 
                 let message =
-                  (inputs_spent, outputs)
+                  (inputs_spent, outputs, fee)
                     |> builtin.serialise_data()
                     |> blake2b_256()
 
@@ -79,8 +81,6 @@ validator wallet_spend {
               }
             Withdrawal(sc) -> must_have_key(withdrawals, sc)?
           }
-
-
 
         and {
           cred_check,

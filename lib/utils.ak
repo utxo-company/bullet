@@ -229,7 +229,7 @@ pub fn filter_hot_inputs(
       } {
         fail
       } else {
-        filter_hot_inputs(xs, address, nonce_cred)
+        [output_reference, ..filter_hot_inputs(xs, address, nonce_cred)]
       }
     }
   }
@@ -253,7 +253,7 @@ pub fn filter_user_inputs(
       } {
         fail
       } else {
-        filter_user_inputs(xs, address, nonce_cred)
+        [output_reference, ..filter_user_inputs(xs, address, nonce_cred)]
       }
     }
   }
@@ -277,7 +277,7 @@ pub fn filter_deleting_inputs(
       } {
         fail
       } else {
-        filter_deleting_inputs(xs, address, nonce_address)
+        [output_reference, ..filter_deleting_inputs(xs, address, nonce_address)]
       }
     }
   }
@@ -346,7 +346,7 @@ pub fn resolve_user_tx(
           xs,
           address,
           nonce_address,
-          filtered_inputs,
+          [output_reference, ..filtered_inputs],
           nonce_present,
           callback,
         )

@@ -12,7 +12,7 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Nonce, Setup, Signed,Verification}
+use types.{AccountState, Nonce, Setup, Signed, Verification}
 use utils.{dataify}
 
 test setup_stake_bullet() {
@@ -38,7 +38,8 @@ test setup_stake_bullet() {
     )
       |> merge(from_lovelace(10000))
 
-  let account_state = AccountState(1, [], Verification([]), [], Verification([]))
+  let account_state =
+    AccountState(1, [], Verification([]), [], Verification([]))
 
   let nonce_state = Nonce(1, "blargh_uuuug")
 

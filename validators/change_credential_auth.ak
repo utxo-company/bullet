@@ -32,8 +32,14 @@ validator cold_control {
 
     when info is {
       Withdrawing(_) -> {
-        let Transaction { inputs, outputs, withdrawals, extra_signatories, .. } =
-          tx
+        let Transaction {
+          inputs,
+          outputs,
+          fee,
+          withdrawals,
+          extra_signatories,
+          ..
+        } = tx
 
         expect ChangeCredentials {
           control_index,
@@ -62,7 +68,7 @@ validator cold_control {
         expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let message =
-          (inputs_spent, outputs)
+          (inputs_spent, outputs, fee)
             |> builtin.serialise_data()
             |> blake2b_256()
 
@@ -101,8 +107,18 @@ validator cold_control {
           dataify(nft_value) == dataify(expected_nft),
           address == expected_address,
           out_quorum > 0,
-          check_keys_and_hashes(out_hot_cred_hash, out_hot_cred, new_hot_sigs, True)?,
-          check_keys_and_hashes(out_cold_cred_hash, out_cold_cred, new_cold_sigs, True)?,
+          check_keys_and_hashes(
+            out_hot_cred_hash,
+            out_hot_cred,
+            new_hot_sigs,
+            True,
+          )?,
+          check_keys_and_hashes(
+            out_cold_cred_hash,
+            out_cold_cred,
+            new_cold_sigs,
+            True,
+          )?,
         }
       }
       Publishing(_, RegisterCredential { .. }) -> True

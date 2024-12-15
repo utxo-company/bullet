@@ -7,7 +7,8 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend, BulletCredential, Control, Verification, Vk, Withdrawal}
+use types.{AccountSpend,
+  BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, filter_deleting_inputs,
   must_find_key, must_have_key, ref_control_datum,
@@ -31,6 +32,7 @@ validator delete_account {
         let Transaction {
           inputs,
           outputs,
+          fee,
           mint,
           withdrawals,
           extra_signatories,
@@ -71,7 +73,7 @@ validator delete_account {
         expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let message =
-          (inputs_spent, outputs, mint)
+          (inputs_spent, outputs, mint, fee)
             |> builtin.serialise_data()
             |> blake2b_256()
 

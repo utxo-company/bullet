@@ -3,8 +3,9 @@
 // Parallel intentions supported
 
 use aiken/builtin
-use aiken/collection/list.{all}
-use aiken/crypto.{ScriptHash, Signature, blake2b_256}
+use aiken/crypto.{
+  Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash,
+}
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{AssetName, PolicyId}
@@ -14,12 +15,36 @@ use cardano/transaction.{Input, Output, OutputReference, Transaction}
 use config
 use types.{BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
-  must_have_key, ref_control_datum,
+  check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
+  ref_control_datum,
+}
+
+type InputConstraint {
+  InAddr(Address)
+  InVal(PolicyId, AssetName, Int)
+  GetDatumField(List<Int>)
+  InRef(OutputReference)
+}
+
+type OutputConstraint {
+  OutAddr(Address)
+  OutVal(PolicyId, AssetName, Int)
+  OutDat(Data)
+  OutDatContainsValue(ByteArray, ByteArray)
+  OutRef(Option<ScriptHash>)
 }
 
 type Constraint {
-  Constraint
+  OutCon(Data<List<OutputConstraint>>)
+  RefCon(Data<List<InputConstraint>>)
+  InpCon(Data<List<InputConstraint>>)
+  MintCon(PolicyId, AssetName, Int)
+  After(Int)
+  Before(Int)
+}
+
+type Nil {
+  Nil
 }
 
 type IntentNonce {
@@ -28,7 +53,7 @@ type IntentNonce {
 }
 
 type Intent {
-  constraints: List<Constraint>,
+  constraints: Data<List<Constraint>>,
   value_leaving: List<(PolicyId, AssetName, Int)>,
   nonce: IntentNonce,
 }
@@ -37,23 +62,34 @@ type SignedIntention {
   prefix: ByteArray,
   intent: Intent,
   postfix: ByteArray,
-  signatures: List<Signature>,
+  signatures: Data<List<Signature>>,
 }
 
 type RefCredentialOrder =
   Pairs<ScriptHash, Int>
 
 type Red {
-  red: List<SignedIntention>,
-  red2: RefCredentialOrder,
+  red: Data<List<SignedIntention>>,
+  red2: Data<RefCredentialOrder>,
 }
 
-fn validate_signatures(
-  hot_cred: BulletCredential,
-  hot_cred_hash,
-  sig_message_list,
-) {
+fn fold_utxos() {
   todo
+}
+
+fn fold_constraints(
+  constraints: List<Data<Constraint>>,
+  temp_val: Data,
+  constraint_validator,
+) -> Bool {
+  expect [constraint, ..rest] = constraints
+
+  let new_temp_val = constraint_validator(constraint, temp_val)
+
+  when rest is {
+    [] -> True
+    _ -> fold_constraints(rest, new_temp_val, constraint_validator)
+  }
 }
 
 /// > [!IMPORTANT]
@@ -63,19 +99,22 @@ fn validate_signatures(
 /// > [!IMPORTANT]
 /// > Votes are ordered by ascending [Voter](./governance.html#Voter) and [GovernanceActionId](./governance.html#GovernanceActionId).<br/>First constructor variants in a type are treated as lower indices; except for [Credential](./credential.html#Credential) where [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
 fn fold_over_ref_creds(
-  ref_creds: Pairs<Credential, Int>,
-  intentions: List<SignedIntention>,
+  ref_creds: Pairs<Data<Credential>, Data<Int>>,
+  intentions: List<Data<SignedIntention>>,
   reference_inputs: List<Input>,
   inputs: List<Input>,
   // We offset to outputs related to change and nonces
   // The earlier outputs would be related to other dApps or intents
   offset_outputs: List<Output>,
   withdrawals: Pairs<Credential, Int>,
+  validate_signature,
   constraint_validator,
 ) {
   when ref_creds is {
     [] -> True
     [Pair(user_stake, additional_intents), ..rest] -> {
+      expect user_stake: ScriptHash = user_stake
+      expect additional_intents: Int = additional_intents
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
       expect Control { quorum, hot_cred, hot_cred_hash, .. } =
@@ -86,17 +125,19 @@ fn fold_over_ref_creds(
 
       expect hot_cred_hash: BulletCredential = hot_cred_hash
 
-      expect [
-        SignedIntention {
-          prefix,
-          intent: Intent { constraints, value_leaving, nonce } as intent,
-          postfix,
-          signatures,
-        },
-        ..rest_intents
-      ] = intentions
+      expect [signed_intent, ..rest_intents] = intentions
 
-      expect (constraints |> all(constraint_validator))?
+      expect SignedIntention {
+        prefix,
+        intent: Intent { constraints, value_leaving, nonce } as intent,
+        postfix,
+        signatures,
+      } = signed_intent
+
+      expect
+        (constraints
+          |> builtin.un_list_data
+          |> fold_constraints(Nil, constraint_validator))?
 
       when hot_cred_hash is {
         Withdrawal(sc) -> {
@@ -117,14 +158,9 @@ fn fold_over_ref_creds(
               |> bytearray.concat(postfix)
               |> builtin.blake2b_256
 
-          if additional_intents == 0 {
-            expect
-              validate_signatures(
-                hot_cred_hash,
-                hot_cred,
-                [Pair(message, signatures)],
-              )
+          expect validate_signature(quorum, vks, hot_cred, signatures, message)
 
+          if additional_intents == 0 {
             todo
           } else {
             todo
@@ -161,10 +197,31 @@ validator intent_spend {
         } = tx
 
         let handle_constraint =
-          fn(constraint) {
+          fn(constraint: Constraint, temp_val: Data) {
             // The magic of constraint logic here
             when constraint is {
               _ -> todo
+            }
+          }
+
+        let validate_signature =
+          fn(
+            quorum: Int,
+            hot_cred: Data,
+            vks: Pairs<VerificationKeyHash, VerificationKey>,
+            sigs: List<Signature>,
+            message: Hash<Blake2b_256, Data>,
+          ) {
+            if hot_cred == dataify([]) {
+              (check_tx_observed(vks, extra_signatories) >= quorum)?
+            } else {
+              expect hot_cred: List<Vk> = hot_cred
+
+              (check_tx_observed(vks, extra_signatories) + check_valid_vk_sigs(
+                hot_cred,
+                sigs,
+                message,
+              ) >= quorum)?
             }
           }
 

@@ -1,14 +1,14 @@
 use aiken/builtin
 use aiken/collection/dict.{to_pairs}
+use aiken/crypto.{ScriptHash}
 use aiken/primitive/bytearray
+use cardano/address.{Address}
 use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Output}
 use config
 use prefix.{nonce_prefix}
 use types.{Nonce}
 use utils.{dataify, skip_list_mega}
-use aiken/crypto.{ScriptHash}
-use cardano/address.{Address}
 
 pub fn nonce_check(
   outputs: List<Output>,

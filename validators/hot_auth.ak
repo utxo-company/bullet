@@ -24,6 +24,7 @@ validator hot_spend {
           inputs,
           reference_inputs,
           outputs,
+          fee,
           withdrawals,
           extra_signatories,
           ..
@@ -59,7 +60,7 @@ validator hot_spend {
               expect hot_cred: List<Vk> = hot_cred
 
               let message =
-                (inputs_spent, outputs)
+                (inputs_spent, outputs, fee)
                   |> builtin.serialise_data()
                   |> blake2b_256()
 
