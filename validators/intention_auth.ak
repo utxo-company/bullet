@@ -181,6 +181,12 @@ fn fold_constraints(
 fn fold_intents(
   intents: List<Data<SignedIntention>>,
   remaining_intents: List<Data<SignedIntention>>,
+  nonce_list,
+  first_nonce,
+  last_nonce,
+  additional_intents,
+  index,
+  callback,
 ) {
   todo
 }
@@ -207,7 +213,7 @@ fn fold_ref_creds(
     [] -> True
     [Pair(user_stake, additional_intents), ..rest] -> {
       expect user_stake: ScriptHash = user_stake
-      expect additional_intents: Int = additional_intents
+      expect additional_intents: ByteArray = additional_intents
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
       expect Control { quorum, hot_cred, hot_cred_hash, .. } =
@@ -252,7 +258,7 @@ fn fold_ref_creds(
             Withdrawal(sc) -> {
               expect must_have_key(withdrawals, sc)?
 
-              if additional_intents == 0 {
+              if builtin.find_first_set_bit(additional_intents) == -1 {
                 // Deal with only a single value leaving and nonce
                 callback(
                   nonce_numb,
@@ -276,7 +282,7 @@ fn fold_ref_creds(
               expect
                 validate_signature(quorum, vks, hot_cred, signatures, message)
 
-              if additional_intents == 0 {
+              if builtin.find_first_set_bit(additional_intents) == 0 {
                 todo
               } else {
                 todo

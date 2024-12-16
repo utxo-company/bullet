@@ -25,7 +25,7 @@ BULLET_NONCE_TOML_KEY="nonce_bullet_hash"
 # Check if network parameter is provided
 if [ $# -ne 1 ]; then
     echo "Error: Network parameter required."
-    echo "Usage: $0 <Mainnet|Preview>"
+    echo "Usage: $0 <Mainnet|Preview|Preprod>"
     exit 1
 fi
 
