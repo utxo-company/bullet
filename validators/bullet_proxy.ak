@@ -65,10 +65,6 @@ validator proxy_spend_types {
     fail
   }
 
-  mint(_r: Void, _op, _tx) {
-    fail
-  }
-
   else(_) {
     fail
   }

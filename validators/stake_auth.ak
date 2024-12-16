@@ -69,7 +69,7 @@ validator wallet_stake {
   }
 }
 
-validator proxy_stake_types {
+validator wallet_stake_types {
   withdraw(_signatures: HotAccountStake, _account: Credential, _tx: Transaction) {
     fail
   }

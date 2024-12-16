@@ -3,6 +3,7 @@
 // Parallel intentions supported
 
 use aiken/builtin
+use aiken/collection/list
 use aiken/crypto.{
   Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash,
 }
@@ -11,9 +12,13 @@ use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{Input, Output, OutputReference, Transaction}
+use cardano/transaction.{
+  InlineDatum, Input, Output, OutputReference, Transaction,
+}
 use config
-use types.{BulletCredential, Control, Verification, Vk, Withdrawal}
+use types.{
+  BulletCredential, Control, ParallelNonce, Vault, Verification, Vk, Withdrawal,
+}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
   ref_control_datum,
@@ -73,8 +78,89 @@ type Red {
   red2: Data<RefCredentialOrder>,
 }
 
-fn fold_utxos() {
-  todo
+fn fold_inputs(
+  user_address,
+  nonce_address,
+  first_nonce,
+  inputs,
+  remaining_inputs,
+  acc_value,
+  parallel_nonce_list,
+  callback,
+) {
+  when inputs is {
+    [] -> {
+      expect [] = parallel_nonce_list
+      callback(acc_value, remaining_inputs)
+    }
+    [x, ..rest] -> {
+      let Input {
+        output_reference,
+        output: Output { address, value, datum, .. },
+      } = x
+
+      if user_address == address {
+        if InlineDatum(Vault) == datum {
+          fail
+        } else if InlineDatum(ParallelNonce) == datum {
+          let new_value = acc_value |> assets.merge(value)
+
+          let nonce_list = list.delete(parallel_nonce_list, output_reference)
+
+          fold_inputs(
+            user_address,
+            nonce_address,
+            first_nonce,
+            rest,
+            remaining_inputs,
+            new_value,
+            nonce_list,
+            callback,
+          )
+        } else {
+          let new_value = acc_value |> assets.merge(value)
+
+          fold_inputs(
+            user_address,
+            nonce_address,
+            first_nonce,
+            rest,
+            remaining_inputs,
+            new_value,
+            parallel_nonce_list,
+            callback,
+          )
+        }
+      } else if nonce_address == address {
+        todo
+      } else if or {
+        address.payment_credential == Script(config.bullet_hash),
+        address.payment_credential == Script(config.nonce_bullet_hash),
+      } {
+        fold_inputs(
+          user_address,
+          nonce_address,
+          first_nonce,
+          rest,
+          [x, ..remaining_inputs],
+          acc_value,
+          parallel_nonce_list,
+          callback,
+        )
+      } else {
+        fold_inputs(
+          user_address,
+          nonce_address,
+          first_nonce,
+          rest,
+          remaining_inputs,
+          acc_value,
+          parallel_nonce_list,
+          callback,
+        )
+      }
+    }
+  }
 }
 
 fn fold_constraints(
@@ -92,13 +178,20 @@ fn fold_constraints(
   }
 }
 
+fn fold_intents(
+  intents: List<Data<SignedIntention>>,
+  remaining_intents: List<Data<SignedIntention>>,
+) {
+  todo
+}
+
 /// > [!IMPORTANT]
 /// > Withdrawals are ordered by ascending [Credential](./credential.html#Credential). Yet, note that [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
 /// > [!IMPORTANT]
 /// > Redeemers are ordered by ascending [ScriptPurpose](./transaction.html#ScriptPurpose).
 /// > [!IMPORTANT]
 /// > Votes are ordered by ascending [Voter](./governance.html#Voter) and [GovernanceActionId](./governance.html#GovernanceActionId).<br/>First constructor variants in a type are treated as lower indices; except for [Credential](./credential.html#Credential) where [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
-fn fold_over_ref_creds(
+fn fold_ref_creds(
   ref_creds: Pairs<Data<Credential>, Data<Int>>,
   intentions: List<Data<SignedIntention>>,
   reference_inputs: List<Input>,
@@ -139,34 +232,60 @@ fn fold_over_ref_creds(
           |> builtin.un_list_data
           |> fold_constraints(Nil, constraint_validator))?
 
-      when hot_cred_hash is {
-        Withdrawal(sc) -> {
-          expect must_have_key(withdrawals, sc)?
-
-          if additional_intents == 0 {
-            // Deal with only a single value leaving and nonce
-            todo
-          } else {
-            // Recursive function to get the remaining value leaving and nonces
-            todo
+      let nonce_numb, parallel_nonce_list <-
+        fn(callback) {
+          when nonce is {
+            Sequential(i) -> callback(i, [])
+            Parallel(p) -> callback(-1, [p])
           }
         }
-        Verification(vks) -> {
-          let message =
-            builtin.serialise_data(intent)
-              |> bytearray.concat(prefix, _)
-              |> bytearray.concat(postfix)
-              |> builtin.blake2b_256
 
-          expect validate_signature(quorum, vks, hot_cred, signatures, message)
+      let
+        first_nonce,
+        last_nonce,
+        parallel_nonce_list,
+        total_value_leaving,
+        remaining_intents,
+      <-
+        fn(callback) {
+          when hot_cred_hash is {
+            Withdrawal(sc) -> {
+              expect must_have_key(withdrawals, sc)?
 
-          if additional_intents == 0 {
-            todo
-          } else {
-            todo
+              if additional_intents == 0 {
+                // Deal with only a single value leaving and nonce
+                callback(
+                  nonce_numb,
+                  nonce_numb,
+                  parallel_nonce_list,
+                  value_leaving,
+                  rest_intents,
+                )
+              } else {
+                // Recursive function to get the remaining value leaving and nonces
+                todo
+              }
+            }
+            Verification(vks) -> {
+              let message =
+                builtin.serialise_data(intent)
+                  |> bytearray.concat(prefix, _)
+                  |> bytearray.concat(postfix)
+                  |> builtin.blake2b_256
+
+              expect
+                validate_signature(quorum, vks, hot_cred, signatures, message)
+
+              if additional_intents == 0 {
+                todo
+              } else {
+                todo
+              }
+            }
           }
         }
-      }
+
+      todo
     }
   }
 }
