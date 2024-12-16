@@ -5,7 +5,7 @@ use aiken/crypto.{
   verify_ecdsa_signature, verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
-use cardano/address.{Address, Credential}
+use cardano/address.{Address, Credential, Script}
 use cardano/assets.{AssetName, PolicyId, Value, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use config
@@ -209,7 +209,6 @@ pub fn dataify(d: Data) -> Data {
 pub fn filter_hot_inputs(
   list: List<Input>,
   address: Address,
-  nonce_cred: Credential,
 ) -> List<OutputReference> {
   when list is {
     [] -> []
@@ -221,15 +220,15 @@ pub fn filter_hot_inputs(
         if datum == InlineDatum(Vault) {
           fail
         } else {
-          [output_reference, ..filter_hot_inputs(xs, address, nonce_cred)]
+          [output_reference, ..filter_hot_inputs(xs, address)]
         }
       } else if or {
         in_address.payment_credential == address.payment_credential,
-        in_address.payment_credential == nonce_cred,
+        in_address.payment_credential == Script(config.nonce_bullet_hash),
       } {
         fail
       } else {
-        [output_reference, ..filter_hot_inputs(xs, address, nonce_cred)]
+        [output_reference, ..filter_hot_inputs(xs, address)]
       }
     }
   }

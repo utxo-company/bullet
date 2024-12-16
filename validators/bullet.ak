@@ -118,7 +118,7 @@ validator stake_bullet {
       let one_shot_message =
         one_shot_ref
           |> builtin.serialise_data()
-          |> concat(config.name_space, _)
+          |> concat(config.namespace, _)
           |> blake2b_256()
 
       expect Script(own_hash) as account = cred

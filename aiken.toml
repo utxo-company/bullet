@@ -30,16 +30,16 @@ new_user_output_index = 0
 one_shot_tx_hash = "one_shot_one_kill"
 one_shot_output_index = 0
 one_shot_mint_hash = "the_best_mint_ever"
-name_space = "Bullet"
+namespace = "Bullet"
 
 [config.preview]
-bullet_hash = "totally_valid"
-nonce_bullet_hash = "totally_valid_nonce"
-proxy_hash = "valid_proxy"
-stake_proxy_hash = "staking_proxy"
+bullet_hash = "dfe96beaad504e9bb9dde0e791bd653689c465ca8bfbeac14fbb6ae4"
+nonce_bullet_hash = "220605916b89eafca0507c21f4b63d408aa0c4a91dec3884ccb6e997"
+proxy_hash = "7d3af52d32c2d38ecdf277325680ae9a6ad6e75e6de0a28d18f4a64c"
+stake_proxy_hash = "3f17b39a71cfa65f8b68877742735017af2a0ff3bd85bf14b44939e8"
 new_user_tx_hash = "new_guy_in_town"
-new_user_output_index = 0
+new_user_output_index = 1
 one_shot_tx_hash = "one_shot_one_kill"
-one_shot_output_index = 0
-one_shot_mint_hash = "the_best_mint_ever"
-name_space = "Bullet"
+one_shot_output_index = 1
+one_shot_mint_hash = "57f1d5ad04c00e4b1b89ffa78d8a386fdc2e9b358cccd238a9b570d0"
+namespace = "Bullet"

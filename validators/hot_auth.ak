@@ -37,8 +37,6 @@ validator hot_spend {
         let expected_address =
           Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
 
-        let expected_nonce_cred = Script(config.nonce_bullet_hash)
-
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
         expect Control { quorum, hot_cred, hot_cred_hash, .. } =
@@ -49,8 +47,7 @@ validator hot_spend {
 
         expect hot_cred_hash: BulletCredential = hot_cred_hash
 
-        let inputs_spent =
-          filter_hot_inputs(inputs, expected_address, expected_nonce_cred)
+        let inputs_spent = filter_hot_inputs(inputs, expected_address)
 
         when hot_cred_hash is {
           Verification(vks) ->

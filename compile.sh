@@ -91,8 +91,8 @@ if [ ! -r "$TOML_FILE" ]; then
 fi
 
 # Write value to TOML file
-toml set "$TOML_FILE" "config.$NETWORK.$ONE_MINT_TOML_KEY" "$JSON_VALUE" 2>/dev/null > aiken.toml
-
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$ONE_MINT_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+echo "$NEW_TOML_CONTENT" > $TOML_FILE
 
 # Compile code
 aiken build --env $NETWORK
@@ -101,8 +101,8 @@ aiken build --env $NETWORK
 JSON_VALUE=$(jq -r "$PROXY_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-toml set "$TOML_FILE" "config.$NETWORK.$PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null > aiken.toml
-
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
 aiken build --env $NETWORK
 
@@ -110,8 +110,8 @@ aiken build --env $NETWORK
 JSON_VALUE=$(jq -r "$BULLET_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-toml set "$TOML_FILE" "config.$NETWORK.$BULLET_TOML_KEY" "$JSON_VALUE" 2>/dev/null > aiken.toml
-
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
 aiken build --env $NETWORK
 
@@ -119,8 +119,8 @@ aiken build --env $NETWORK
 JSON_VALUE=$(jq -r "$STAKE_PROXY_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-toml set "$TOML_FILE" "config.$NETWORK.$STAKE_PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null > aiken.toml
-
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$STAKE_PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
 aiken build --env $NETWORK
 
@@ -128,8 +128,8 @@ aiken build --env $NETWORK
 JSON_VALUE=$(jq -r "$BULLET_NONCE_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-toml set "$TOML_FILE" "config.$NETWORK.$BULLET_NONCE_TOML_KEY" "$JSON_VALUE" 2>/dev/null > aiken.toml
-
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_NONCE_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Check if toml command was successful
 if [ $? -ne 0 ]; then
     echo "Error: Failed to write value to TOML file."
