@@ -65,13 +65,14 @@ type Intent {
 
 type SignedIntention {
   prefix: ByteArray,
+  user_stake: ScriptHash,
   intent: Intent,
   postfix: ByteArray,
   signatures: Data<List<Signature>>,
 }
 
 type RefCredentialOrder =
-  Pairs<ScriptHash, Int>
+  List<ByteArray>
 
 type Red {
   red: Data<List<SignedIntention>>,
@@ -178,7 +179,9 @@ fn fold_constraints(
   }
 }
 
-fn fold_intents(
+fn fold_intents_no_sigs(
+  user_stake,
+  constraint_validator,
   intents: List<Data<SignedIntention>>,
   remaining_intents: List<Data<SignedIntention>>,
   nonce_list,
@@ -188,17 +191,78 @@ fn fold_intents(
   index,
   callback,
 ) {
-  todo
+  if index == 0 {
+    expect [signed_intent, ..rest] = intents
+
+    // deal with intent here
+    expect SignedIntention {
+      user_stake,
+      intent: Intent { constraints, value_leaving, nonce },
+      ..
+    } = signed_intent
+
+    expect
+        (constraints
+          |> builtin.un_list_data
+          |> fold_constraints(Nil, constraint_validator))?
+
+    // continue with rest of intents
+    let new_index = builtin.find_first_set_bit(additional_intents)
+    let new_intents = builtin.shift_bytearray(additional_intents, -new_index)
+
+    let
+      remaining_intents,
+      nonce_list,
+      first_nonce,
+      last_nonce,
+    <-
+      fold_intents_no_sigs(
+        user_stake,
+        constraint_validator,
+        rest,
+        remaining_intents,
+        nonce_list,
+        first_nonce,
+        last_nonce,
+        new_intents,
+        new_index,
+      )
+
+    todo
+  } else if index > 0 {
+    expect [temp_intent, ..rest] = intents
+
+    let
+      remaining_intents,
+      nonce_list,
+      first_nonce,
+      last_nonce,
+    <-
+      fold_intents_no_sigs(
+        user_stake,
+        constraint_validator,
+        rest,
+        remaining_intents,
+        nonce_list,
+        first_nonce,
+        last_nonce,
+        additional_intents,
+        index - 1,
+      )
+
+    callback(
+      [temp_intent, ..remaining_intents],
+      nonce_list,
+      first_nonce,
+      last_nonce,
+    )
+  } else {
+    callback(remaining_intents, nonce_list, first_nonce, last_nonce)
+  }
 }
 
-/// > [!IMPORTANT]
-/// > Withdrawals are ordered by ascending [Credential](./credential.html#Credential). Yet, note that [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
-/// > [!IMPORTANT]
-/// > Redeemers are ordered by ascending [ScriptPurpose](./transaction.html#ScriptPurpose).
-/// > [!IMPORTANT]
-/// > Votes are ordered by ascending [Voter](./governance.html#Voter) and [GovernanceActionId](./governance.html#GovernanceActionId).<br/>First constructor variants in a type are treated as lower indices; except for [Credential](./credential.html#Credential) where [`Script`](./credential.html#Credential) credentials are treated as **lower values** than [`VerificationKey`](./credential.html#Credential) credentials.
 fn fold_ref_creds(
-  ref_creds: Pairs<Data<Credential>, Data<Int>>,
+  ref_creds: List<Data<ByteArray>>,
   intentions: List<Data<SignedIntention>>,
   reference_inputs: List<Input>,
   inputs: List<Input>,
@@ -211,8 +275,17 @@ fn fold_ref_creds(
 ) {
   when ref_creds is {
     [] -> True
-    [Pair(user_stake, additional_intents), ..rest] -> {
-      expect user_stake: ScriptHash = user_stake
+    [additional_intents, ..rest] -> {
+      expect [signed_intent, ..rest_intents] = intentions
+
+      expect SignedIntention {
+        prefix,
+        user_stake,
+        intent: Intent { constraints, value_leaving, nonce } as intent,
+        postfix,
+        signatures,
+      } = signed_intent
+
       expect additional_intents: ByteArray = additional_intents
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -223,15 +296,6 @@ fn fold_ref_creds(
       expect quorum: Int = quorum
 
       expect hot_cred_hash: BulletCredential = hot_cred_hash
-
-      expect [signed_intent, ..rest_intents] = intentions
-
-      expect SignedIntention {
-        prefix,
-        intent: Intent { constraints, value_leaving, nonce } as intent,
-        postfix,
-        signatures,
-      } = signed_intent
 
       expect
         (constraints
@@ -358,16 +422,3 @@ validator intent_spend {
     }
   }
 }
-// validator hot_spend_types {
-//   withdraw(
-//     _signatures: (ScriptHash, List<Signature>),
-//     _account: Credential,
-//     _tx: Transaction,
-//   ) {
-//     fail
-//   }
-
-//   else(_) {
-//     fail
-//   }
-// }

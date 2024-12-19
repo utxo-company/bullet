@@ -145,6 +145,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Successfully transferred values from JSON to TOML file."
+echo "Successfully compiled Bullet."
 
 exit 0
