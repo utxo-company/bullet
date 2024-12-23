@@ -83,6 +83,7 @@ pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
 
   let Input { output, .. } = input
 
+  // This won't error since every input has to at least have ada
   expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
 
   if dataify(nft_value) == ref_value {
