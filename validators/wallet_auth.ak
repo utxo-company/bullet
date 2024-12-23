@@ -8,8 +8,9 @@ use config
 use types.{AccountSpend,
   BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key,
-  ref_control_datum, resolve_user_tx,
+  check_all_tx_observed, check_all_valid_vk_sigs, check_tx_observed,
+  check_valid_vk_sigs, dataify, must_have_key, ref_control_datum,
+  resolve_user_tx,
 }
 use validations.{nonce_check}
 
@@ -35,11 +36,12 @@ validator wallet_spend {
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-        expect Control { hot_cred, hot_cred_hash, .. } =
+        expect Control { hot_cred, hot_cred_hash, quorum, .. } =
           reference_inputs
             |> ref_control_datum(expected_nft)
 
         expect hot_cred_hash: BulletCredential = hot_cred_hash
+        expect quorum: Int = quorum
 
         let stake_key = Some(Inline(Script(user_stake)))
 
@@ -73,11 +75,11 @@ validator wallet_spend {
                     |> builtin.serialise_data()
                     |> blake2b_256()
 
-                check_all_tx_observed(vks, extra_signatories)? && check_all_valid_vk_sigs(
+                (check_tx_observed(vks, extra_signatories) + check_valid_vk_sigs(
                   hot_cred,
                   sigs,
                   message,
-                )?
+                ) >= quorum)?
               }
             Withdrawal(sc) -> must_have_key(withdrawals, sc)?
           }

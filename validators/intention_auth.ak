@@ -3,28 +3,16 @@
 // Parallel intentions supported
 
 use aiken/builtin
-use aiken/collection/list
 use aiken/crypto.{
-  Blake2b_256, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash,
+  Blake2b_256, Hash, Signature, VerificationKey, VerificationKeyHash,
 }
-use aiken/primitive/bytearray
-use cardano/address.{Address, Credential, Inline, Script}
-use cardano/assets.{AssetName, PolicyId}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{
-  InlineDatum, Input, Output, OutputReference, Transaction,
-}
-use config
+use cardano/transaction.{Transaction}
 use intention_types.{Before, Constraint, SignedIntention}
 use intention_utils.{fold_intent_counts}
-use types.{
-  BulletCredential, Control, ParallelNonce, Vault, Verification, Vk, Withdrawal,
-}
-use utils.{
-  check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
-  ref_control_datum, skip_list_mega_fast,
-}
+use types.{Vk}
+use utils.{check_tx_observed, check_valid_vk_sigs, dataify, skip_list_mega_fast}
 
 type Red {
   intentions: Data<List<SignedIntention>>,
@@ -32,7 +20,7 @@ type Red {
   output_offset: Int,
 }
 
-/// Action to spend from your vault using a quorum of hot keys
+/// Action to hot spend via intent
 validator intent_spend {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
@@ -43,17 +31,17 @@ validator intent_spend {
           inputs,
           reference_inputs,
           outputs,
-          fee,
-          mint,
-          certificates,
+          fee: _,
+          mint: _,
+          certificates: _,
           withdrawals,
-          validity_range,
+          validity_range: _,
           extra_signatories,
-          redeemers,
-          datums,
-          id,
-          votes,
-          proposal_procedures,
+          redeemers: _,
+          datums: _,
+          id: _,
+          votes: _,
+          proposal_procedures: _,
           ..
         } = tx
 

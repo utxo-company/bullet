@@ -245,17 +245,17 @@ pub fn fold_intent_counts(
   intent_counts: List<Data<ByteArray>>,
   intentions: List<Data<SignedIntention>>,
   reference_inputs: List<Input>,
-  inputs: List<Input>,
+  _inputs: List<Input>,
   // We offset to outputs related to change and nonces
   // The earlier outputs would be related to other dApps or intents
-  offset_outputs: List<Output>,
+  _offset_outputs: List<Output>,
   withdrawals: Pairs<Credential, Int>,
   validate_signature,
   constraint_validator,
 ) -> Bool {
   when intent_counts is {
     [] -> True
-    [additional_intents, ..rest] -> {
+    [additional_intents, ..] -> {
       expect [signed_intent, ..rest_intents] = intentions
 
       expect SignedIntention {
