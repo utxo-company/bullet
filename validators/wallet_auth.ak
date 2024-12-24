@@ -8,9 +8,8 @@ use config
 use types.{AccountSpend,
   BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, check_tx_observed,
-  check_valid_vk_sigs, dataify, must_have_key, ref_control_datum,
-  resolve_user_tx,
+  check_all_tx_observed, check_tx_observed, check_valid_vk_sigs, dataify,
+  must_have_key, ref_control_datum, resolve_user_tx,
 }
 use validations.{nonce_check}
 
@@ -66,7 +65,7 @@ validator wallet_spend {
           when hot_cred_hash is {
             Verification(vks) ->
               if hot_cred == dataify([]) {
-                check_all_tx_observed(vks, extra_signatories)?
+                (check_tx_observed(vks, extra_signatories) >= quorum)?
               } else {
                 expect hot_cred: List<Vk> = hot_cred
 

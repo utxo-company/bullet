@@ -1,24 +1,36 @@
 use aiken/builtin
+use aiken/collection/dict.{to_pairs}
 use aiken/collection/list
 use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
-use cardano/address.{Credential, Script}
-use cardano/assets
+use cardano/address.{Address, Credential, Script}
+use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Input, Output}
 use config
 use intention_types.{
   Constraint, Intent, Nil, Parallel, Sequential, SignedIntention,
 }
+use prefix.{nonce_prefix}
 use types.{
-  BulletCredential, Control, ParallelNonce, Vault, Verification, Withdrawal,
+  BulletCredential, Control, Nonce, ParallelNonce, UtxoStates, Vault,
+  Verification, Withdrawal,
 }
-use utils.{must_have_key, ref_control_datum}
+use utils.{dataify, must_have_key, ref_control_address_datum, ref_control_datum}
 
-fn combine_values(_value_leaving_left, _value_leaving_right) {
+fn fast_combine_output_value() {
+  todo
+}
+
+fn fast_combine_values(left, right) {
+  todo
+}
+
+fn combine_value_leaving(_value_leaving_left, _value_leaving_right) {
   todo
 }
 
 fn fold_inputs(
+  user_stake,
   user_address,
   nonce_address,
   first_nonce,
@@ -48,6 +60,7 @@ fn fold_inputs(
           let nonce_list = list.delete(parallel_nonce_list, output_reference)
 
           fold_inputs(
+            user_stake,
             user_address,
             nonce_address,
             first_nonce,
@@ -61,6 +74,7 @@ fn fold_inputs(
           let new_value = acc_value |> assets.merge(value)
 
           fold_inputs(
+            user_stake,
             user_address,
             nonce_address,
             first_nonce,
@@ -72,12 +86,41 @@ fn fold_inputs(
           )
         }
       } else if nonce_address == address {
-        todo
+        expect [_, ..nft_value] = value |> to_dict |> to_pairs
+
+        let expected_nft =
+          [
+            Pair(
+              config.bullet_hash,
+              [Pair(bytearray.concat(nonce_prefix, user_stake), 1)],
+            ),
+          ]
+
+        expect dataify(expected_nft) == dataify(nft_value)
+
+        expect InlineDatum(datum) = datum
+
+        expect Nonce { increment, .. } = datum
+
+        expect increment == first_nonce
+
+        fold_inputs(
+          user_stake,
+          user_address,
+          nonce_address,
+          first_nonce,
+          rest,
+          remaining_inputs,
+          acc_value,
+          parallel_nonce_list,
+          callback,
+        )
       } else if or {
         address.payment_credential == Script(config.bullet_hash),
         address.payment_credential == Script(config.nonce_bullet_hash),
       } {
         fold_inputs(
+          user_stake,
           user_address,
           nonce_address,
           first_nonce,
@@ -89,6 +132,7 @@ fn fold_inputs(
         )
       } else {
         fold_inputs(
+          user_stake,
           user_address,
           nonce_address,
           first_nonce,
@@ -103,6 +147,7 @@ fn fold_inputs(
   }
 }
 
+/// Done
 fn fold_constraints(
   constraints: List<Data<Constraint>>,
   temp_val: Data,
@@ -199,7 +244,8 @@ fn fold_intents_no_sigs(
         )
 
       // combine value leaving
-      let combined_value = combine_values(value_leaving, total_value_leaving)
+      let combined_value =
+        combine_value_leaving(value_leaving, total_value_leaving)
 
       callback(
         first_nonce,
@@ -245,17 +291,17 @@ pub fn fold_intent_counts(
   intent_counts: List<Data<ByteArray>>,
   intentions: List<Data<SignedIntention>>,
   reference_inputs: List<Input>,
-  _inputs: List<Input>,
+  inputs: List<Input>,
   // We offset to outputs related to change and nonces
   // The earlier outputs would be related to other dApps or intents
-  _offset_outputs: List<Output>,
+  offset_outputs: List<Output>,
   withdrawals: Pairs<Credential, Int>,
   validate_signature,
   constraint_validator,
 ) -> Bool {
   when intent_counts is {
-    [] -> True
-    [additional_intents, ..] -> {
+    [] -> intentions == []
+    [additional_intent_count, ..rest_count] -> {
       expect [signed_intent, ..rest_intents] = intentions
 
       expect SignedIntention {
@@ -266,13 +312,18 @@ pub fn fold_intent_counts(
         signatures,
       } = signed_intent
 
-      expect additional_intents: ByteArray = additional_intents
+      expect additional_intents: ByteArray = additional_intent_count
 
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-      expect Control { quorum, hot_cred, hot_cred_hash, .. } =
+      let (user_address, control_datum) =
         reference_inputs
-          |> ref_control_datum(expected_nft)
+          |> ref_control_address_datum(expected_nft)
+
+      let nonce_address =
+        Address(Script(config.nonce_bullet_hash), user_address.stake_credential)
+
+      expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
 
       expect quorum: Int = quorum
 
@@ -292,11 +343,11 @@ pub fn fold_intent_counts(
         }
 
       let
-        _first_nonce,
-        _last_nonce,
-        _parallel_nonce_list,
-        _total_value_leaving,
-        _remaining_intents,
+        first_nonce,
+        last_nonce,
+        parallel_nonce_list,
+        total_value_leaving,
+        remaining_intents,
       <-
         fn(callback) {
           when hot_cred_hash is {
@@ -341,8 +392,8 @@ pub fn fold_intent_counts(
 
               expect signatures: List<Signature> = signatures
 
-              expect
-                validate_signature(quorum, hot_cred, vks, signatures, message)
+              let validate_signature_post =
+                validate_signature(quorum, hot_cred, vks)
 
               if builtin.find_first_set_bit(additional_intents) == 0 {
                 todo
@@ -353,7 +404,31 @@ pub fn fold_intent_counts(
           }
         }
 
-      todo
+      let
+        acc_value,
+        remaining_inputs,
+      <-
+        fold_inputs(
+          user_stake,
+          user_address,
+          nonce_address,
+          first_nonce,
+          inputs,
+          [],
+          assets.zero,
+          parallel_nonce_list,
+        )
+
+      fold_intent_counts(
+        rest_count,
+        remaining_intents,
+        reference_inputs,
+        remaining_inputs,
+        offset_outputs,
+        withdrawals,
+        validate_signature,
+        constraint_validator,
+      )
     }
   }
 }

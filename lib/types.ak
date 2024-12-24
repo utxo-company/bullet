@@ -25,6 +25,9 @@ pub type BulletCredential {
   Withdrawal(Credential)
 }
 
+// Optimization:
+// Possibly switch from many Vk to single one
+// since Schnorr supports k of m signatures anyway
 pub type AccountState {
   quorum: Int,
   hot_cred: List<Vk>,

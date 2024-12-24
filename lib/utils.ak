@@ -2,7 +2,7 @@ use aiken/builtin
 use aiken/collection/dict.{Dict, to_pairs}
 use aiken/crypto.{
   Blake2b_224, Hash, Signature, VerificationKey, VerificationKeyHash,
-  verify_ecdsa_signature, verify_schnorr_signature,
+  verify_ecdsa_signature, verify_ed25519_signature, verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
 use cardano/address.{Address, Credential, Script}
@@ -94,6 +94,61 @@ pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
   }
 }
 
+pub fn ref_control_address_datum(ref_inputs: List<Input>, ref_value: Data) -> (Address, Data) {
+  expect [input, ..rest] = ref_inputs
+
+  let Input { output, .. } = input
+
+  // This won't error since every input has to at least have ada
+  expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
+
+  if dataify(nft_value) == ref_value {
+    let Output{address, datum, .. } = output
+
+    expect InlineDatum(control_datum) = datum
+    
+    (address, control_datum)
+  } else {
+    ref_control_address_datum(rest, ref_value)
+  }
+}
+
+/// Returns count of non-empty signatures that are valid
+/// Fails if any non-empty signature is invalid
+pub fn check_quorum_valid_sigs(
+  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
+  vks: List<Vk>,
+  signatures: List<Signature>,
+  message: MessageHash,
+) -> Int {
+  when vks is {
+    [] -> check_valid_edd_sigs(vkhs, signatures, message)
+    [vk, ..rest] -> {
+      expect [sig, ..others] = signatures
+
+      if is_empty(sig) {
+        check_quorum_valid_sigs(vkhs, rest, others, message)
+      } else {
+        when vk is {
+          // ranked by probable usage
+          Schnorr(vk) ->
+            if vk |> verify_schnorr_signature(message, sig) {
+              1 + check_quorum_valid_sigs(vkhs, rest, others, message)
+            } else {
+              fail
+            }
+          Secp(vk) ->
+            if vk |> verify_ecdsa_signature(message, sig) {
+              1 + check_quorum_valid_sigs(vkhs, rest, others, message)
+            } else {
+              fail
+            }
+        }
+      }
+    }
+  }
+}
+
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_valid_vk_sigs(
@@ -123,6 +178,31 @@ pub fn check_valid_vk_sigs(
             } else {
               fail
             }
+        }
+      }
+    }
+  }
+}
+
+/// Returns count of non-empty signatures that are valid
+/// Fails if any non-empty signature is invalid
+pub fn check_valid_edd_sigs(
+  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
+  signatures: List<Signature>,
+  message: MessageHash,
+) -> Int {
+  when vkhs is {
+    [] -> 0
+    [Pair(_vkh, vk), ..rest] -> {
+      expect [sig, ..others] = signatures
+
+      if is_empty(sig) {
+        check_valid_edd_sigs(rest, others, message)
+      } else {
+        if vk |> verify_ed25519_signature(message, sig) {
+          1 + check_valid_edd_sigs(rest, others, message)
+        } else {
+          fail
         }
       }
     }

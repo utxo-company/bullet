@@ -9,10 +9,14 @@ use aiken/crypto.{
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
-use intention_types.{Before, Constraint, SignedIntention}
+use intention_types.{
+  After, Before, Constraint, InpCon, MintCon, OutCon, RefCon, SignedIntention,
+}
 use intention_utils.{fold_intent_counts}
 use types.{Vk}
-use utils.{check_tx_observed, check_valid_vk_sigs, dataify, skip_list_mega_fast}
+use utils.{
+  check_quorum_valid_sigs, check_valid_edd_sigs, dataify, skip_list_mega_fast,
+}
 
 type Red {
   intentions: Data<List<SignedIntention>>,
@@ -36,7 +40,7 @@ validator intent_spend {
           certificates: _,
           withdrawals,
           validity_range: _,
-          extra_signatories,
+          extra_signatories: _,
           redeemers: _,
           datums: _,
           id: _,
@@ -45,13 +49,18 @@ validator intent_spend {
           ..
         } = tx
 
+        // TODO: finish constraint validator
         let handle_constraint =
           fn(constraint: Data, _temp_val: Data) {
             expect constraint: Constraint = constraint
             // The magic of constraint logic here
             when constraint is {
-              Before(_before_time) -> todo
-              _ -> todo
+              OutCon(out_constraints) -> todo
+              RefCon(ref_constraints) -> todo
+              InpCon(inp_constraints) -> todo
+              MintCon(p, an, amount) -> todo
+              After(time) -> todo
+              Before(time) -> todo
             }
           }
 
@@ -60,19 +69,15 @@ validator intent_spend {
             quorum: Int,
             hot_cred: Data,
             vks: Pairs<VerificationKeyHash, VerificationKey>,
-            sigs: List<Signature>,
-            message: Hash<Blake2b_256, Data>,
           ) {
-            if hot_cred == dataify([]) {
-              (check_tx_observed(vks, extra_signatories) >= quorum)?
-            } else {
-              expect hot_cred: List<Vk> = hot_cred
+            fn(sigs: List<Signature>, message: Hash<Blake2b_256, Data>) {
+              if hot_cred == dataify([]) {
+                (check_valid_edd_sigs(vks, sigs, message) >= quorum)?
+              } else {
+                expect hot_cred: List<Vk> = hot_cred
 
-              (check_tx_observed(vks, extra_signatories) + check_valid_vk_sigs(
-                hot_cred,
-                sigs,
-                message,
-              ) >= quorum)?
+                (check_quorum_valid_sigs(vks, hot_cred, sigs, message) >= quorum)?
+              }
             }
           }
 
