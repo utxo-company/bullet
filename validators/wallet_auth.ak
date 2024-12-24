@@ -8,8 +8,8 @@ use config
 use types.{AccountSpend,
   BulletCredential, Control, Verification, Vk, Withdrawal}
 use utils.{
-  check_all_tx_observed, check_tx_observed, check_valid_vk_sigs, dataify,
-  must_have_key, ref_control_datum, resolve_user_tx,
+  check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
+  ref_control_datum, resolve_user_tx,
 }
 use validations.{nonce_check}
 
@@ -54,11 +54,12 @@ validator wallet_spend {
           nonce_state,
         <-
           resolve_user_tx(
+            user_stake,
             inputs,
             expected_address,
             expected_nonce_address,
             [],
-            None,
+            -1,
           )
 
         let cred_check =

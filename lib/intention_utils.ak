@@ -98,11 +98,7 @@ fn fold_inputs(
 
         expect dataify(expected_nft) == dataify(nft_value)
 
-        expect InlineDatum(datum) = datum
-
-        expect Nonce { increment, .. } = datum
-
-        expect increment == first_nonce
+        expect datum == InlineDatum(first_nonce)
 
         fold_inputs(
           user_stake,

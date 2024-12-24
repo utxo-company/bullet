@@ -1,7 +1,7 @@
 use aiken/builtin
 use aiken/collection/dict.{Dict, to_pairs}
 use aiken/crypto.{
-  Blake2b_224, Hash, Signature, VerificationKey, VerificationKeyHash,
+  Blake2b_224, Hash, ScriptHash, Signature, VerificationKey, VerificationKeyHash,
   verify_ecdsa_signature, verify_ed25519_signature, verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
@@ -364,12 +364,13 @@ pub fn filter_deleting_inputs(
 }
 
 pub fn resolve_user_tx(
+  user_stake: ScriptHash,
   list: List<Input>,
   address: Address,
   nonce_address: Address,
   filtered_inputs: List<OutputReference>,
-  nonce_present: Option<Nonce>,
-  callback: fn(List<OutputReference>, Option<Nonce>) -> Bool,
+  nonce_present: Nonce,
+  callback: fn(List<OutputReference>, Nonce) -> Bool,
 ) -> Bool {
   when list is {
     [] -> callback(filtered_inputs, nonce_present)
@@ -379,6 +380,7 @@ pub fn resolve_user_tx(
 
       if in_address == address {
         resolve_user_tx(
+          user_stake,
           xs,
           address,
           nonce_address,
@@ -397,7 +399,7 @@ pub fn resolve_user_tx(
               config.bullet_hash,
               [
                 Pair(
-                  bytearray.concat(nonce_prefix, nonce_state.account_hash),
+                  bytearray.concat(nonce_prefix, user_stake),
                   1,
                 ),
               ],
@@ -409,11 +411,12 @@ pub fn resolve_user_tx(
         expect dataify(expected_value) == dataify(nft_value)
 
         resolve_user_tx(
+          user_stake,
           xs,
           address,
           nonce_address,
           [output_reference, ..filtered_inputs],
-          Some(nonce_state),
+          nonce_state,
           callback,
         )
       } else if or {
@@ -423,6 +426,7 @@ pub fn resolve_user_tx(
         fail
       } else {
         resolve_user_tx(
+          user_stake,
           xs,
           address,
           nonce_address,

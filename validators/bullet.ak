@@ -14,7 +14,7 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Nonce, Setup, StakeActions, Verification, Withdrawal}
+use types.{AccountState, Setup, StakeActions, Verification, Withdrawal}
 use utils.{
   check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
   must_find_item, must_find_key, must_have, must_have_key,
@@ -186,7 +186,7 @@ validator stake_bullet {
         (dataify(rest_nonce) == dataify(expected_nonce_value))?,
         (address == expected_address)?,
         (nonce_addr == expected_nonce_address)?,
-        (dataify(Nonce(1, own_hash)) == nonce_datum)?,
+        (dataify(1) == nonce_datum)?,
         (quorum > 0)?,
         check_keys_and_hashes(hot_cred_hash, hot_cred, hot_sigs)?,
         check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs)?,

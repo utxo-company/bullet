@@ -52,11 +52,12 @@ validator cold_spend {
           nonce_state,
         <-
           resolve_user_tx(
+            user_stake,
             inputs,
             expected_address,
             expected_nonce_address,
             [],
-            None,
+            -1,
           )
 
         let cred_check =

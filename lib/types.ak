@@ -48,10 +48,7 @@ pub type UtxoStates {
   Vault
 }
 
-pub type Nonce {
-  increment: Int,
-  account_hash: ScriptHash,
-}
+pub type Nonce = Int
 
 pub type ProxyState {
   hot_auth_contract: Credential,
