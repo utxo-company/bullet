@@ -6,16 +6,19 @@ use aiken/builtin
 use aiken/crypto.{
   Blake2b_256, Hash, Signature, VerificationKey, VerificationKeyHash,
 }
+use aiken/interval.{Interval, IntervalBound}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use intention_types.{
-  After, Before, Constraint, InpCon, MintCon, OutCon, RefCon, SignedIntention,
+  AfterVal, BeforeVal, Constraint, InpConMaybeVal, MintConNil, OutConNil,
+  RefConMaybeVal, SignedIntention,
 }
-use intention_utils.{fold_intent_counts}
+use intention_utils.{fold_intent_counts, handle_out_constraint}
 use types.{Vk}
 use utils.{
-  check_quorum_valid_sigs, check_valid_edd_sigs, dataify, skip_list_mega_fast,
+  check_quorum_valid_sigs, check_valid_edd_sigs, dataify, quantity_of,
+  skip_list_mega_fast,
 }
 
 type Red {
@@ -36,10 +39,13 @@ validator intent_spend {
           reference_inputs,
           outputs,
           fee: _,
-          mint: _,
+          mint,
           certificates: _,
           withdrawals,
-          validity_range: _,
+          validity_range: Interval {
+            lower_bound: IntervalBound { bound_type: lower_bound_val, .. },
+            upper_bound: IntervalBound { bound_type: upper_bound_val, .. },
+          },
           extra_signatories: _,
           redeemers: _,
           datums: _,
@@ -51,16 +57,35 @@ validator intent_spend {
 
         // TODO: finish constraint validator
         let handle_constraint =
-          fn(constraint: Data, _temp_val: Data) {
+          fn(constraint: Data, temp_val: Data) {
             expect constraint: Constraint = constraint
             // The magic of constraint logic here
             when constraint is {
-              OutCon(out_constraints) -> todo
-              RefCon(ref_constraints) -> todo
-              InpCon(inp_constraints) -> todo
-              MintCon(p, an, amount) -> todo
-              After(time) -> todo
-              Before(time) -> todo
+              OutConNil(out_constraints) ->
+                handle_out_constraint(outputs, out_constraints, temp_val)
+              RefConMaybeVal(_ref_constraints) -> todo
+              InpConMaybeVal(_inp_constraints) -> todo
+              MintConNil(p, an, amount) -> {
+                expect ( mint |> quantity_of(p, an) ) == amount
+
+                dataify(None)
+              }
+              AfterVal(time) -> {
+                expect [lower, ..] =
+                  lower_bound_val |> dataify |> builtin.unconstr_fields
+
+                  expect time < builtin.un_i_data(lower)
+
+                dataify(lower)
+              }
+              BeforeVal(time) -> {
+                expect [upper, ..] =
+                  upper_bound_val |> dataify |> builtin.unconstr_fields
+
+                  expect time >= builtin.un_i_data(upper)
+
+                dataify(upper)
+              }
             }
           }
 

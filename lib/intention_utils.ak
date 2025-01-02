@@ -1,21 +1,22 @@
 use aiken/builtin
+use aiken/cbor.{serialise}
 use aiken/collection/dict.{to_pairs}
 use aiken/collection/list
 use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Script}
-use cardano/assets.{to_dict}
+use cardano/assets.{Value, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output}
 use config
 use intention_types.{
-  Constraint, Intent, Nil, Parallel, Sequential, SignedIntention,
+  Constraint, Intent, Nada, Options, OutputConstraint, Parallel, Sequential,
+  SignedIntention, SomeOne, SomeTwo,
 }
 use prefix.{nonce_prefix}
 use types.{
-  BulletCredential, Control, Nonce, ParallelNonce, UtxoStates, Vault,
-  Verification, Withdrawal,
+  BulletCredential, Control, ParallelNonce, Vault, Verification, Withdrawal,
 }
-use utils.{dataify, must_have_key, ref_control_address_datum, ref_control_datum}
+use utils.{dataify, must_have_key, ref_control_address_datum}
 
 fn fast_combine_output_value() {
   todo
@@ -185,7 +186,7 @@ fn fold_intents_no_sigs(
     expect
       (constraints
         |> builtin.un_list_data
-        |> fold_constraints(Nil, constraint_validator))?
+        |> fold_constraints(None, constraint_validator))?
 
     // Deal with nonce
     let last_nonce, parallel_nonce_list <-
@@ -328,7 +329,7 @@ pub fn fold_intent_counts(
       expect
         (constraints
           |> builtin.un_list_data
-          |> fold_constraints(Nil, constraint_validator))?
+          |> fold_constraints(None, constraint_validator))?
 
       let nonce_numb, parallel_nonce_list <-
         fn(callback) {
@@ -426,5 +427,96 @@ pub fn fold_intent_counts(
         constraint_validator,
       )
     }
+  }
+}
+
+fn check_val(vals: List<Data>, value: Value) {
+  todo
+}
+
+pub fn handle_out_constraint(
+  outputs: List<Output>,
+  con: Data,
+  temp_val: Data,
+) -> Data {
+  expect OutputConstraint { address, value, datum, ref } = con
+  let runnable_val =
+    if dataify([]) == value {
+      fn(_output) { True }
+    } else {
+      fn(output: Output) {
+        value |> builtin.un_list_data |> check_val(output.value)
+      }
+    }
+
+  let runnable_datum =
+    if dataify(Nada) == datum {
+      runnable_val
+    } else {
+      expect datum_options: Options<Data, (ByteArray, ByteArray)> = datum
+
+      when datum_options is {
+        SomeOne(datum_check) ->
+          fn(output: Output) {
+            dataify(output.datum) == datum_check && runnable_val(output)
+          }
+
+        SomeTwo((pre_bytes, post_bytes)) -> {
+          let datum_bytes_check =
+            temp_val
+              |> serialise
+              |> bytearray.concat(pre_bytes, _)
+              |> bytearray.concat(post_bytes)
+
+          fn(output: Output) { serialise(output.datum) == datum_bytes_check }
+        }
+
+        Nada -> fail
+      }
+    }
+
+  let runnable_ref =
+    if ref == dataify(None) {
+      runnable_datum
+    } else {
+      fn(output: Output) {
+        ref == dataify(output.reference_script) && runnable_datum(output)
+      }
+    }
+
+  let runnable =
+    if address == dataify(Nada) {
+      runnable_ref
+    } else {
+      expect address_options: Options<Data, Data> = address
+
+      when address_options is {
+        SomeOne(address) ->
+          fn(output: Output) {
+            dataify(output.address) == address && runnable_ref(output)
+          }
+
+        SomeTwo(pay_cred) ->
+          fn(output: Output) {
+            and {
+              dataify(output.address.payment_credential) == pay_cred,
+              runnable_ref(output),
+            }
+          }
+
+        Nada -> fail
+      }
+    }
+
+  apply_constraint_to_list(outputs, runnable)
+}
+
+fn apply_constraint_to_list(list: List<a>, runnable: fn(a) -> Bool) -> Data {
+  expect [x, ..rest] = list
+
+  if runnable(x) {
+    dataify(None)
+  } else {
+    apply_constraint_to_list(rest, runnable)
   }
 }

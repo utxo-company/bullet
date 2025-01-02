@@ -48,7 +48,8 @@ pub type UtxoStates {
   Vault
 }
 
-pub type Nonce = Int
+pub type Nonce =
+  Int
 
 pub type ProxyState {
   hot_auth_contract: Credential,

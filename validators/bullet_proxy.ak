@@ -37,8 +37,7 @@ validator proxy_spend {
         ] =
           reference_inputs
             |> ref_control_datum(expected_nft)
-            |> builtin.un_constr_data()
-            |> builtin.snd_pair()
+            |> builtin.unconstr_fields
 
         if redeemer == dataify(HotCred) {
           must_have_key_data(withdrawals, hot_cred_contract)

@@ -94,7 +94,10 @@ pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
   }
 }
 
-pub fn ref_control_address_datum(ref_inputs: List<Input>, ref_value: Data) -> (Address, Data) {
+pub fn ref_control_address_datum(
+  ref_inputs: List<Input>,
+  ref_value: Data,
+) -> (Address, Data) {
   expect [input, ..rest] = ref_inputs
 
   let Input { output, .. } = input
@@ -103,10 +106,9 @@ pub fn ref_control_address_datum(ref_inputs: List<Input>, ref_value: Data) -> (A
   expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
 
   if dataify(nft_value) == ref_value {
-    let Output{address, datum, .. } = output
+    let Output { address, datum, .. } = output
 
     expect InlineDatum(control_datum) = datum
-    
     (address, control_datum)
   } else {
     ref_control_address_datum(rest, ref_value)
@@ -397,12 +399,7 @@ pub fn resolve_user_tx(
           [
             Pair(
               config.bullet_hash,
-              [
-                Pair(
-                  bytearray.concat(nonce_prefix, user_stake),
-                  1,
-                ),
-              ],
+              [Pair(bytearray.concat(nonce_prefix, user_stake), 1)],
             ),
           ]
 
@@ -555,4 +552,55 @@ pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
     |> bytearray.concat(#"0001")
     |> builtin.blake2b_224
     |> Some
+}
+
+fn interesting(i: Int) {
+  if i == 0 {
+    identity
+  } else {
+    let func = interesting(i - 1)
+
+    fn(list) { func(list) |> builtin.tail_list }
+  }
+}
+
+const something = interesting(8)
+
+test other() {
+  let x = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+
+  let y = something(x)
+
+  let g = something(x) |> builtin.head_list
+
+  y == ["i"] && g == "i"
+}
+
+test other_2() {
+  let x = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+
+  let y =
+    x
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+
+  let g =
+    x
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.tail_list
+      |> builtin.head_list
+
+  y == ["i"] && g == "i"
 }

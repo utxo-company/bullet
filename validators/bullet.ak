@@ -53,8 +53,6 @@ validator stake_bullet {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
 
-    let unconstr = builtin.un_constr_data
-
     let cred =
       when info is {
         Withdrawing(cred) -> dataify(cred)
@@ -77,9 +75,9 @@ validator stake_bullet {
         //   delegate_representative: Credential, ..
         // }
         Publishing { certificate, .. } -> {
-          expect Pair(index, [cred, ..]) = unconstr(certificate)
+          expect [cred, ..] = builtin.unconstr_fields(certificate)
 
-          expect index < 7
+          expect builtin.unconstr_index(certificate) < 7
 
           cred
         }
@@ -89,9 +87,9 @@ validator stake_bullet {
         //   StakePool(VerificationKeyHash)
         // }
         Voting(voter) -> {
-          expect Pair(index, [cred, ..]) = unconstr(voter)
+          expect [cred, ..] = builtin.unconstr_fields(voter)
 
-          expect index < 2
+          expect builtin.unconstr_index(voter) < 2
 
           cred
         }
