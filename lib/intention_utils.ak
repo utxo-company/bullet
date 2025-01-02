@@ -297,7 +297,7 @@ pub fn fold_intent_counts(
   constraint_validator,
 ) -> Bool {
   when intent_counts is {
-    [] -> intentions == []
+    [] -> intentions == [] && inputs == []
     [additional_intent_count, ..rest_count] -> {
       expect [signed_intent, ..rest_intents] = intentions
 
@@ -381,6 +381,9 @@ pub fn fold_intent_counts(
               }
             }
             Verification(vks) -> {
+              let validate_signature_post =
+                validate_signature(quorum, hot_cred, vks)
+
               let message =
                 builtin.serialise_data(intent)
                   |> bytearray.concat(prefix, _)
@@ -389,11 +392,16 @@ pub fn fold_intent_counts(
 
               expect signatures: List<Signature> = signatures
 
-              let validate_signature_post =
-                validate_signature(quorum, hot_cred, vks)
+              expect validate_signature_post(signatures, message)
 
-              if builtin.find_first_set_bit(additional_intents) == 0 {
-                todo
+              if builtin.find_first_set_bit(additional_intents) == -1 {
+                callback(
+                  nonce_numb,
+                  nonce_numb,
+                  parallel_nonce_list,
+                  value_leaving,
+                  rest_intents,
+                )
               } else {
                 todo
               }
@@ -416,6 +424,8 @@ pub fn fold_intent_counts(
           parallel_nonce_list,
         )
 
+      // TODO fold outputs
+      // Fold other intents
       fold_intent_counts(
         rest_count,
         remaining_intents,
