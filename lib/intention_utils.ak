@@ -18,11 +18,11 @@ use types.{
 }
 use utils.{dataify, must_have_key, ref_control_address_datum}
 
-fn fast_combine_output_value() {
+fn fast_combine_output_value(_left, _right) {
   todo
 }
 
-fn fast_combine_values(left, right) {
+fn fast_combine_values(_left, _right) {
   todo
 }
 
@@ -440,7 +440,7 @@ pub fn fold_intent_counts(
   }
 }
 
-fn check_val(vals: List<Data>, value: Value) {
+fn check_val(_vals: List<Data>, _value: Value) {
   todo
 }
 
