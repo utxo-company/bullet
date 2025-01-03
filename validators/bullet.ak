@@ -274,7 +274,7 @@ validator bullet_types {
   }
 }
 
-validator nonce_bullet {
+validator bullet_nonce {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, .. } = sc
 
@@ -297,7 +297,7 @@ validator nonce_bullet {
 }
 
 /// Types for nonce bullet validator
-validator nonce_bullet_types {
+validator bullet_nonce_types {
   spend(_d: Option<Data>, _r: Void, _o, _tx) {
     fail
   }

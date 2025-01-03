@@ -19,7 +19,7 @@ BULLET_TOML_KEY="bullet_hash"
 STAKE_PROXY_PLUTUS_KEY=".validators.[31].hash"
 STAKE_PROXY_TOML_KEY="stake_proxy_hash"
 
-BULLET_NONCE_PLUTUS_KEY=".validators.[4].hash"
+BULLET_NONCE_PLUTUS_KEY=".validators.[1].hash"
 BULLET_NONCE_TOML_KEY="nonce_bullet_hash"
 
 # Check if network parameter is provided
