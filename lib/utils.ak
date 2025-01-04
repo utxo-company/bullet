@@ -246,10 +246,12 @@ pub fn check_all_valid_vk_sigs(
               |> verify_schnorr_signature(message, sig)
           ) && check_all_valid_vk_sigs(rest, others, message)
         Secp(vk) ->
-          (
-            vk
-              |> verify_schnorr_signature(message, sig)
-          ) && check_all_valid_vk_sigs(rest, others, message)
+          (vk
+            |> verify_ecdsa_signature(message, sig))? && check_all_valid_vk_sigs(
+            rest,
+            others,
+            message,
+          )
       }
     }
   }
@@ -545,7 +547,7 @@ test skip_list_speed_2_s() {
   ( skip_list_mega_fast(x, 11) |> builtin.head_list ) == 25
 }
 
-/// Produce a plutusV3 script hash to match the onchain comparison 
+/// Produce a plutusV3 script hash to match the onchain comparison
 /// with script ref field in Output
 pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
   bytearray.concat(#"03582401010048811c", bytes)

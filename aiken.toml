@@ -33,13 +33,34 @@ one_shot_mint_hash = "the_best_mint_ever"
 namespace = "Bullet"
 
 [config.preview]
-bullet_hash = "e02f0ac30e1ab3486a575f3b8f9083cfd9a5c58591f8c63917058abb"
-nonce_bullet_hash = "627ca87a346c76e6b993ed09b72d63f31976ab62e2e91867708eb870"
-proxy_hash = "f16419997b2538ac736df02536878d3ac561727a392b50c1cab7b06c"
-stake_proxy_hash = "bf4b169f3bd13c195d78552cb3f8fe31d37db7947781a831710334cd"
-new_user_tx_hash = "new_guy_in_town"
 new_user_output_index = 1
-one_shot_tx_hash = "one_shot_one_kill"
-one_shot_output_index = 1
-one_shot_mint_hash = "57f1d5ad04c00e4b1b89ffa78d8a386fdc2e9b358cccd238a9b570d0"
+one_shot_output_index = 0
 namespace = "Bullet"
+
+[config.preview.bullet_hash]
+bytes = "6b724bc060226d7f5f9d93b4922bd2a666b438d7b992067b0a1ec568"
+encoding = "hex"
+
+[config.preview.nonce_bullet_hash]
+bytes = "19ebbd4b5a3264b887cbb7363b73c628df642b101d8ebed458d6bdf7"
+encoding = "hex"
+
+[config.preview.proxy_hash]
+bytes = "bdcb23c24fb46da4b8437802b4dcdfca075f6f507157e7d544d6d3d9"
+encoding = "hex"
+
+[config.preview.stake_proxy_hash]
+bytes = "43703f5affd9e29cb51c4a5c650072832e130c3514673af70912b482"
+encoding = "hex"
+
+[config.preview.new_user_tx_hash]
+bytes = "aabbccddeeff"
+encoding = "hex"
+
+[config.preview.one_shot_tx_hash]
+bytes = "0000000000000000000000000000000000000000000000000000000000000000"
+encoding = "hex"
+
+[config.preview.one_shot_mint_hash]
+bytes = "eab80b1fbde22a3c571aefc845550d55746979478e6ffbc26d48b385"
+encoding = "hex"

@@ -14,7 +14,9 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Setup, StakeActions, Verification, Withdrawal}
+use types.{
+  AccountState, Nonce, Setup, StakeActions, UtxoStates, Verification, Withdrawal,
+}
 use utils.{
   check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
   must_find_item, must_find_key, must_have, must_have_key,
@@ -26,7 +28,7 @@ use utils.{
 // UserAccount =
 // Address(Script("BULLET"), Some(Inline(Script("TRUE_STAKE_KEY"))))
 
-/// Used as an example of how an always true 
+/// Used as an example of how an always true
 /// stake key does not comprimise other user accounts
 validator true_stake_bullet {
   else(_) {
@@ -109,7 +111,7 @@ validator stake_bullet {
         config.new_user_tx_hash
           |> OutputReference(config.new_user_output_index)
 
-      // This should come from a pub key anyway 
+      // This should come from a pub key anyway
       // so this is fine to one time validate credentials are
       // valid
       // We use blake2b_256 since secp256k1 message size is 32 bytes
@@ -118,6 +120,8 @@ validator stake_bullet {
           |> builtin.serialise_data()
           |> concat(config.namespace, _)
           |> blake2b_256()
+
+      trace @"INSIDE MESSAGE IS ": one_shot_message
 
       expect Script(own_hash) as account = cred
 
@@ -261,7 +265,7 @@ validator bullet {
 }
 
 validator bullet_types {
-  spend(_d: Option<Data>, _r: Void, _o, _tx) {
+  spend(_d: Option<UtxoStates>, _r: Void, _o, _tx) {
     fail
   }
 
@@ -298,7 +302,7 @@ validator bullet_nonce {
 
 /// Types for nonce bullet validator
 validator bullet_nonce_types {
-  spend(_d: Option<Data>, _r: Void, _o, _tx) {
+  spend(_d: Option<Nonce>, _r: Void, _o, _tx) {
     fail
   }
 

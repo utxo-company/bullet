@@ -23,14 +23,16 @@ BULLET_NONCE_PLUTUS_KEY=".validators.[1].hash"
 BULLET_NONCE_TOML_KEY="nonce_bullet_hash"
 
 # Check if network parameter is provided
-if [ $# -ne 1 ]; then
+if [ $# -lt 1 ]; then
     echo "Error: Network parameter required."
-    echo "Usage: $0 <Mainnet|Preview|Preprod>"
+    echo "Usage: $0 <Mainnet|Preview|Preprod> [silent|verbose|compact]"
     exit 1
 fi
 
 # Convert parameter to lowercase for consistent comparison
 NETWORK=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+
+TRACE_LEVEL=$([ $# -eq 2 ] && echo "-t $2" || echo "")
 
 
 # Function to check if a command exists
@@ -55,7 +57,7 @@ if ! command_exists toml; then
 fi
 
 # Compile code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Check if JSON file exists
 if [ ! -f "$JSON_FILE" ]; then
@@ -91,44 +93,44 @@ if [ ! -r "$TOML_FILE" ]; then
 fi
 
 # Write value to TOML file
-NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$ONE_MINT_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$ONE_MINT_TOML_KEY.bytes" "$JSON_VALUE" 2>/dev/null)
 echo "$NEW_TOML_CONTENT" > $TOML_FILE
 
 # Compile code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Read value from JSON file
 JSON_VALUE=$(jq -r "$PROXY_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$PROXY_TOML_KEY.bytes" "$JSON_VALUE" 2>/dev/null)
 echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Read value from JSON file
 JSON_VALUE=$(jq -r "$BULLET_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_TOML_KEY.bytes" "$JSON_VALUE" 2>/dev/null)
 echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Read value from JSON file
 JSON_VALUE=$(jq -r "$STAKE_PROXY_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$STAKE_PROXY_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$STAKE_PROXY_TOML_KEY.bytes" "$JSON_VALUE" 2>/dev/null)
 echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Compile code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Read value from JSON file
 JSON_VALUE=$(jq -r "$BULLET_NONCE_PLUTUS_KEY" "$JSON_FILE" 2>/dev/null)
 
 # Write value to TOML file
-NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_NONCE_TOML_KEY" "$JSON_VALUE" 2>/dev/null)
+NEW_TOML_CONTENT=$(toml set "$TOML_FILE" "config.$NETWORK.$BULLET_NONCE_TOML_KEY.bytes" "$JSON_VALUE" 2>/dev/null)
 echo "$NEW_TOML_CONTENT" > $TOML_FILE
 # Check if toml command was successful
 if [ $? -ne 0 ]; then
@@ -137,7 +139,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Finally compile onchain ready code
-aiken build --env $NETWORK 2>/dev/null
+aiken build --env $NETWORK $TRACE_LEVEL 2>/dev/null
 
 # Check if aiken command was successful
 if [ $? -ne 0 ]; then

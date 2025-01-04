@@ -79,7 +79,11 @@ validator one_shot_proxy_mint {
 
     expect [Input { output_reference, .. }, ..] = inputs
 
-    output_reference == one_shot_ref
+    trace @"out_ref": output_reference
+
+    trace @"one_shot": one_shot_ref
+
+    (output_reference == one_shot_ref)?
   }
 
   else(_) {

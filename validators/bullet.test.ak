@@ -1,4 +1,5 @@
 use aiken/builtin
+use aiken/crypto.{blake2b_256, verify_ecdsa_signature}
 use aiken/primitive/bytearray.{concat}
 use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}
@@ -13,9 +14,20 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Setup, Signed, Verification}
+use types.{AccountState, Secp, Setup, Signed, Verification}
 use utils.{dataify}
-use aiken/crypto.{blake2b_256}
+
+test thing() {
+  let vk = #"03f3944e9bb6c066251c76f24e0d34f68024803cf0c8965e731d6c7994b8c08a8c"
+
+  let message =
+    #"f914545fd7828277c3e42415d2ff0574b3b47e408284ab90427fb7cc2b27dfc5"
+
+  let sig =
+    #"c4411c540879aef2b4cebd0ef70c55fd6232e2de975b53e3afdc8e374f3213136e98fca7dd2464cfd333f2f57f784504f472bc8997f667c2bf4a9739e079938a"
+
+  verify_ecdsa_signature(vk, message, sig)
+}
 
 test setup_stake_bullet() {
   let account = Script("blargh_uuuug")
@@ -174,35 +186,30 @@ test setup_stake_bullet_ecdsa() {
     )
       |> merge(from_lovelace(10000))
   let public_key_hot =
-    #"48b3fbaa5a3bed2a74d7ba688b983647686df8ae3896bb0a6a36fbc9b971a631"
+    #"033384badff03326853c7140b9bdae0fdc6c46e6b34e8ef9425438da88ca51ec1d"
 
   let public_key_cold =
-    #"739a6a87d4df256a9caf84cd3fb5c9ed556a44cf0c10d4990c283176b8a8e1ed"
-
-  let public_key_hot_hash = builtin.blake2b_224(public_key_hot)
-
-  let public_key_cold_hash = builtin.blake2b_224(public_key_cold)
+    #"03816fd397fa85fe96f2c911ba35de33a5501f25803900d7b378bbab359378c4ce"
 
   let account_state =
     AccountState(
       1,
-      [],
-      Verification([Pair(public_key_hot_hash, public_key_hot)]),
-      [],
-      Verification([Pair(public_key_cold_hash, public_key_cold)]),
+      [Secp(public_key_hot)],
+      Verification([]),
+      [Secp(public_key_cold)],
+      Verification([]),
     )
 
   let nonce_state = 1
 
-  let message =
+  expect message =
     config.new_user_tx_hash
       |> OutputReference(config.new_user_output_index)
       |> builtin.serialise_data()
-      |> concat(config.namespace)
+      |> concat(config.namespace, _)
       |> blake2b_256()
 
-  trace @"MESSAGE IS": message
-
+  trace @"TEST MESSAGE": message
 
   let input =
     Input(
@@ -220,18 +227,25 @@ test setup_stake_bullet_ecdsa() {
         InlineDatum(nonce_state),
         None,
       ),
-      Output(address, zero, InlineDatum([[], []]), None),
+      Output(
+        address,
+        zero,
+        InlineDatum(
+          [
+            [
+              #"28d2a3eb0f17a0e22acf330f1ec5a498bd6358908d7e795b38af403d62fac2b7627d6dc96dbf17dcf2e4fbf01be8d730a8a91020c3ae2f8e10109d7daa0a09cc",
+            ],
+            [
+              #"36c26891f159fd944f50fdb752bea9062ee92c4c30bedeb6602d753d17adccd3503c1f057a9dd7078b457640928b14a36dd647cd953e348d81d258a60e7d1d5a",
+            ],
+          ],
+        ),
+        None,
+      ),
     ]
 
-  let extra_signatories = [public_key_hot_hash, public_key_cold_hash]
-
   let tx =
-    Transaction {
-      ..transaction.placeholder,
-      inputs: [input],
-      outputs: outputs,
-      extra_signatories: extra_signatories,
-    }
+    Transaction { ..transaction.placeholder, inputs: [input], outputs: outputs }
 
   let sc =
     ScriptContext(tx, Setup, Publishing(0, RegisterCredential(account, Never)))
@@ -268,7 +282,9 @@ test can_mint_bullet() {
     Transaction {
       ..transaction.placeholder,
       mint: from_asset(own_policy, name, 1)
-        |> merge(from_asset(own_policy, bytearray.concat(nonce_prefix, name), 1)),
+        |> merge(
+            from_asset(own_policy, bytearray.concat(nonce_prefix, name), 1),
+          ),
       redeemers: [
         Pair(Mint(#"aabbbcccddeeff"), other),
         Pair(Withdraw(Script(#"aabbbccc")), other2),
