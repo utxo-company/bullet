@@ -57,9 +57,9 @@ export const ControlSchema = Data.Object({
   }),
 });
 
-export const ParallelNonceSchema = Data.Object({});
+export const ParallelNonceSchema = Data.Literal("ParallelNonce");
 
-export const VaultSchema = Data.Object({});
+export const VaultSchema = Data.Literal("Vault");
 
 export const BulletUtxoStateSchema = Data.Enum([
   ControlSchema,
@@ -67,14 +67,14 @@ export const BulletUtxoStateSchema = Data.Enum([
   VaultSchema,
 ]);
 
-export const BulletDatumSchema = BulletUtxoStateSchema;
+export type BulletDatumType = Data.Static<typeof BulletUtxoStateSchema>;
 
-export type BulletDatumType = Data.Static<typeof BulletDatumSchema>;
-export const BulletDatumType = BulletDatumSchema as unknown as BulletDatumType;
+export const BulletDatumType =
+  BulletUtxoStateSchema as unknown as BulletDatumType;
 
-export const SetupSchema = Data.Object({});
+export const SetupSchema = Data.Literal("Setup");
 
-export const SignedSchema = Data.Object({});
+export const SignedSchema = Data.Literal("Signed");
 
 export const StakeBulletRedeemerSchema = Data.Enum([SetupSchema, SignedSchema]);
 
@@ -97,3 +97,12 @@ export const ProxyStateSchema = Data.Object({
 export type ProxyStateType = Data.Static<typeof ProxyStateSchema>;
 
 export const ProxyStateType = ProxyStateSchema as unknown as ProxyStateType;
+
+export const SigsDatumSchema = Data.Tuple([
+  Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+  Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+]);
+
+export type SigsDatumType = Data.Static<typeof SigsDatumSchema>;
+
+export const SigsDatumType = SigsDatumSchema as unknown as SigsDatumType;
