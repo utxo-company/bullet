@@ -1,7 +1,7 @@
 use aiken/crypto.{ScriptHash, Signature}
 use cardano/address.{Address, Credential}
 use cardano/assets.{AssetName, PolicyId}
-use cardano/transaction.{OutputReference}
+use cardano/transaction.{OutputReference, ScriptPurpose}
 
 pub type Options<a, b> {
   SomeOne(a)
@@ -12,25 +12,28 @@ pub type Options<a, b> {
 pub type InputConstraint {
   address: Data<Options<Address, Credential>>,
   value: Data<List<(PolicyId, AssetName, Int)>>,
-  datum_field: Data<Option<List<Int>>>,
+  datum_field: Data<List<Int>>,
   in_ref: Data<Option<OutputReference>>,
 }
 
 pub type OutputConstraint {
   address: Data<Options<Address, Credential>>,
-  value: Data<List<(PolicyId, AssetName, Int)>>,
+  value: Data<
+    Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
+  >,
   datum: Data<Options<Data, (ByteArray, ByteArray)>>,
-  // Technically should be Option<Option<ScriptHash>>, but I can't think of 
+  // Technically should be Option<Option<ScriptHash>>, but I can't think of
   // a realistic reason to match on None
-  // There isn't an attack vector for injecting scripts in outputs other than 
+  // There isn't an attack vector for injecting scripts in outputs other than
   // giving more money to the address
   ref: Data<Option<ScriptHash>>,
 }
 
 pub type Constraint {
   OutConNil(Data<OutputConstraint>)
-  RefConMaybeVal(Data<InputConstraint>)
-  InpConMaybeVal(Data<InputConstraint>)
+  RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>)
+  RefConVal(Data<InputConstraint>)
+  InpConVal(Data<InputConstraint>)
   MintConNil(PolicyId, AssetName, Int)
   AfterVal(Int)
   BeforeVal(Int)

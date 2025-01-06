@@ -1,4 +1,4 @@
-// Aggregate multiple user intentions 
+// Aggregate multiple user intentions
 // User contention solved (user signs nonce and intentions)
 // Parallel intentions supported
 
@@ -9,22 +9,24 @@ use aiken/crypto.{
 use aiken/interval.{Interval, IntervalBound}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{Transaction}
+use cardano/transaction.{Redeemer, Transaction}
 use intention_types.{
-  AfterVal, BeforeVal, Constraint, InpConMaybeVal, MintConNil, OutConNil,
-  RefConMaybeVal, SignedIntention,
+  AfterVal, BeforeVal, Constraint, InpConVal, MintConNil, OutConNil, RedeemerVal,
+  RefConVal, SignedIntention,
 }
-use intention_utils.{fold_intent_counts, handle_out_constraint}
+use intention_utils.{fold_intent_counts, handle_out_constraint, select_field}
 use types.{Vk}
 use utils.{
-  check_quorum_valid_sigs, check_valid_edd_sigs, dataify, quantity_of,
-  skip_list_mega_fast,
+  check_quorum_valid_sigs, check_valid_edd_sigs, dataify, must_find_key,
+  quantity_of, skip_list_mega_fast,
 }
 
 type Red {
   intentions: Data<List<SignedIntention>>,
   intent_user_counts: Data<List<ByteArray>>,
-  output_offset: Int,
+  change_output_offset: Int,
+  constraint_output_offset: Int,
+  constraint_redeemer_offset: Int,
 }
 
 /// Action to hot spend via intent
@@ -47,13 +49,27 @@ validator intent_spend {
             upper_bound: IntervalBound { bound_type: upper_bound_val, .. },
           },
           extra_signatories: _,
-          redeemers: _,
+          redeemers,
           datums: _,
           id: _,
           votes: _,
           proposal_procedures: _,
           ..
         } = tx
+
+        expect Red {
+          intentions,
+          intent_user_counts,
+          change_output_offset,
+          constraint_output_offset,
+          constraint_redeemer_offset,
+        } = redeemer
+
+        let constraint_outputs =
+          skip_list_mega_fast(outputs, constraint_output_offset)
+
+        let constraint_redeemers =
+          skip_list_mega_fast(redeemers, constraint_redeemer_offset)
 
         // TODO: finish constraint validator
         let handle_constraint =
@@ -62,19 +78,29 @@ validator intent_spend {
             // The magic of constraint logic here
             when constraint is {
               OutConNil(out_constraints) ->
-                handle_out_constraint(outputs, out_constraints, temp_val)
-              RefConMaybeVal(_ref_constraints) -> todo
-              InpConMaybeVal(_inp_constraints) -> todo
-              MintConNil(p, an, amount) -> {
-                expect ( mint |> quantity_of(p, an) ) == amount
+                handle_out_constraint(
+                  constraint_outputs,
+                  out_constraints,
+                  temp_val,
+                )
+              RedeemerVal(script_purpose, field_selection) -> {
+                let redeemer: Redeemer =
+                  constraint_redeemers
+                    |> dataify
+                    |> builtin.un_map_data
+                    |> must_find_key(script_purpose)
 
-                dataify(None)
+                field_selection
+                  |> builtin.un_list_data
+                  |> select_field(redeemer)
               }
+              RefConVal(_ref_constraints) -> todo
+              InpConVal(_inp_constraints) -> todo
               AfterVal(time) -> {
                 expect [lower, ..] =
                   lower_bound_val |> dataify |> builtin.unconstr_fields
 
-                  expect time < builtin.un_i_data(lower)
+                expect time < builtin.un_i_data(lower)
 
                 dataify(lower)
               }
@@ -82,9 +108,14 @@ validator intent_spend {
                 expect [upper, ..] =
                   upper_bound_val |> dataify |> builtin.unconstr_fields
 
-                  expect time >= builtin.un_i_data(upper)
+                expect time >= builtin.un_i_data(upper)
 
                 dataify(upper)
+              }
+              MintConNil(p, an, amount) -> {
+                expect ( mint |> quantity_of(p, an) ) == amount
+
+                dataify(None)
               }
             }
           }
@@ -106,8 +137,7 @@ validator intent_spend {
             }
           }
 
-        expect Red { intentions, intent_user_counts, output_offset } = redeemer
-        let folding_outputs = skip_list_mega_fast(outputs, output_offset)
+        let folding_outputs = skip_list_mega_fast(outputs, change_output_offset)
 
         fold_intent_counts(
           intent_user_counts |> builtin.un_list_data,

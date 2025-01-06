@@ -5,7 +5,7 @@ use aiken/collection/list
 use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Script}
-use cardano/assets.{Value, to_dict}
+use cardano/assets.{Value, ada_policy_id, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output}
 use config
 use intention_types.{
@@ -16,7 +16,9 @@ use prefix.{nonce_prefix}
 use types.{
   BulletCredential, Control, ParallelNonce, Vault, Verification, Withdrawal,
 }
-use utils.{dataify, must_have_key, ref_control_address_datum}
+use utils.{at, dataify, must_have_key, ref_control_address_datum}
+
+const is_nada = fn(options: Data) { dataify(Nada) == options }
 
 fn fast_combine_output_value(_left, _right) {
   todo
@@ -440,8 +442,23 @@ pub fn fold_intent_counts(
   }
 }
 
-fn check_val(_vals: List<Data>, _value: Value) {
-  todo
+pub fn select_field(field_selection_list: List<Data>, constr: Data) -> Data {
+  when field_selection_list is {
+    [] -> constr
+
+    [x, ..rest] -> {
+      let x = builtin.un_i_data(x)
+
+      constr |> builtin.unconstr_fields |> at(x) |> select_field(rest, _)
+    }
+  }
+}
+
+pub fn expect_options_data_tuple_bytearray(
+  options: Data,
+) -> Options<Data, (ByteArray, ByteArray)> {
+  expect options: Options<Data, (ByteArray, ByteArray)> = options
+  options
 }
 
 pub fn handle_out_constraint(
@@ -450,22 +467,41 @@ pub fn handle_out_constraint(
   temp_val: Data,
 ) -> Data {
   expect OutputConstraint { address, value, datum, ref } = con
+
   let runnable_val =
-    if dataify([]) == value {
+    if is_nada(value) {
       fn(_output) { True }
     } else {
-      fn(output: Output) {
-        value |> builtin.un_list_data |> check_val(output.value)
+      when expect_options_data_tuple_bytearray(value) is {
+        SomeOne(exact_value_check) ->
+          fn(output: Output) { dataify(output.value) == exact_value_check }
+
+        SomeTwo((policy, asset_name)) -> {
+          let exact_value_check =
+            [Pair(policy, [Pair(asset_name, builtin.un_i_data(temp_val))])]
+              |> dataify
+
+          if policy == ada_policy_id {
+            fn(output: Output) { dataify(output.value) == exact_value_check }
+          } else {
+            fn(output: Output) {
+              when output.value |> to_dict |> to_pairs is {
+                [] -> False
+                [_, ..rest_value] -> dataify(rest_value) == exact_value_check
+              }
+            }
+          }
+        }
+
+        Nada -> fail
       }
     }
 
   let runnable_datum =
-    if dataify(Nada) == datum {
+    if is_nada(datum) {
       runnable_val
     } else {
-      expect datum_options: Options<Data, (ByteArray, ByteArray)> = datum
-
-      when datum_options is {
+      when expect_options_data_tuple_bytearray(datum) is {
         SomeOne(datum_check) ->
           fn(output: Output) {
             dataify(output.datum) == datum_check && runnable_val(output)
@@ -495,7 +531,7 @@ pub fn handle_out_constraint(
     }
 
   let runnable =
-    if address == dataify(Nada) {
+    if is_nada(address) {
       runnable_ref
     } else {
       expect address_options: Options<Data, Data> = address
@@ -519,6 +555,10 @@ pub fn handle_out_constraint(
     }
 
   apply_constraint_to_list(outputs, runnable)
+}
+
+fn check_val(_vals: List<Data>, _value: Value) {
+  todo
 }
 
 fn apply_constraint_to_list(list: List<a>, runnable: fn(a) -> Bool) -> Data {
