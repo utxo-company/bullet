@@ -38,23 +38,23 @@ one_shot_output_index = 0
 namespace = "Bullet"
 
 [config.preview.bullet_hash]
-bytes = "56c8139b8e97f59423344acf90b451f6a27f0ba6bc1b4342209fa07a"
+bytes = "4358145f7196b607984e6683474c23acd8bc3e604fbb1edaf7042d2f"
 encoding = "hex"
 
 [config.preview.nonce_bullet_hash]
-bytes = "e6cabed7843ab6be2849f3d275c43ff4da92ea17fe01df713b287424"
+bytes = "90749be071c60c38b6937eee61a95ebfceab63816f92ed6a583d50a5"
 encoding = "hex"
 
 [config.preview.proxy_hash]
-bytes = "bdcb23c24fb46da4b8437802b4dcdfca075f6f507157e7d544d6d3d9"
+bytes = "94d279d88f819a30d4236ba9503ea54f54756a21b63b5e6ca1d2bec2"
 encoding = "hex"
 
 [config.preview.stake_proxy_hash]
-bytes = "c06ccaa5434bc0f00c093cc95270b51b06d8f44a3327d12e4c0eef5a"
+bytes = "4d7f1e4660838910918e366b5e3316318a987e6208fe9b339a5bf073"
 encoding = "hex"
 
 [config.preview.new_user_tx_hash]
-bytes = "0f0bfe8cb5730ae757093fa10ba13176a7599377e4d00f9f725735a0b2c5f0a2"
+bytes = "a46c6b3cdd3872dcbfaeda8e952b62a344f2f4a153b88e844057a51b0e46c6a9"
 encoding = "hex"
 
 [config.preview.one_shot_tx_hash]
@@ -62,5 +62,5 @@ bytes = "0000000000000000000000000000000000000000000000000000000000000000"
 encoding = "hex"
 
 [config.preview.one_shot_mint_hash]
-bytes = "eab80b1fbde22a3c571aefc845550d55746979478e6ffbc26d48b385"
+bytes = "6342ef2b97924c044bd4f91e32108fc2f1ae7d677d75797468108fdf"
 encoding = "hex"

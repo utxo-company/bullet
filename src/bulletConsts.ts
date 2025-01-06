@@ -5,6 +5,7 @@ import {
   scriptHashToCredential,
   SpendingValidator,
   validatorToAddress,
+  validatorToRewardAddress,
   validatorToScriptHash,
   VoteValidator,
   WithdrawalValidator,
@@ -25,6 +26,10 @@ export const oneShotMintValidator = scripts.validators.find(
 
 export const proxyValidator = scripts.validators.find(
   (v) => v.title === "bullet_proxy.proxy_spend.else",
+)!.compiledCode;
+
+export const walletStakeValidator = scripts.validators.find(
+  (v) => v.title === "stake_auth.wallet_stake.else",
 )!.compiledCode;
 
 export const hotAuthValidator = scripts.validators.find(
@@ -77,6 +82,10 @@ export const proxyScript: WithdrawalValidator = {
   type: "PlutusV3",
   script: proxyValidator,
 };
+export const walletStakeScript: WithdrawalValidator = {
+  type: "PlutusV3",
+  script: walletStakeValidator,
+};
 
 export const hotAuthScript: WithdrawalValidator = {
   type: "PlutusV3",
@@ -115,6 +124,15 @@ export const bulletNonceScript: SpendingValidator = {
 
 export const proxyAddress = validatorToAddress("Preview", proxyScript);
 
+export const proxyRewardAddress = validatorToRewardAddress(
+  "Preview",
+  proxyScript,
+);
+
+export const proxyHash = validatorToScriptHash(proxyScript);
+
+export const walletStakeHash = validatorToScriptHash(walletStakeScript);
+
 export const oneShotMintPolicy = validatorToScriptHash(oneShotMintScript);
 
 export const bulletStakeHash = validatorToScriptHash(stakeBulletScript);
@@ -143,3 +161,15 @@ export const bulletNonceAddress = validatorToAddress(
 );
 
 export const bulletMintPolicy = validatorToScriptHash(bulletScript);
+
+export const hotAuthHash = validatorToScriptHash(hotAuthScript);
+
+export const intentAuthHash = validatorToScriptHash(intentAuthScript);
+
+export const walletAuthHash = validatorToScriptHash(walletAuthScript);
+
+export const coldAuthHash = validatorToScriptHash(coldAuthScript);
+
+export const changeAuthHash = validatorToScriptHash(changeAuthScript);
+
+export const deleteHash = validatorToScriptHash(deleteScript);

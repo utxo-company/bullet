@@ -9,6 +9,8 @@ import {
   generateEmulatorAccountFromPrivateKey,
   CML,
   toHex,
+  LucidEvolution,
+  generateEmulatorAccount,
 } from "@lucid-evolution/lucid";
 
 import {
@@ -24,13 +26,20 @@ import {
   bulletRewardAddress,
   bulletScript,
   bulletStakeHash,
+  changeAuthHash,
+  coldAuthHash,
+  deleteHash,
+  hotAuthHash,
+  intentAuthHash,
   oneShotMintPolicy,
   oneShotMintScript,
   proxyAddress,
+  proxyRewardAddress,
   stakeBulletScript,
+  walletAuthHash,
 } from "./bulletConsts";
 
-async function main() {
+async function setupBullet() {
   // Initialize Lucid with Koios provider
   //
   // console.log(
@@ -58,12 +67,12 @@ async function main() {
   console.log("Time for the Global Setup of Bullet.");
 
   const oneShotDatum: ProxyStateType = {
-    hotAuthContract: { Script: [oneShotMintPolicy] },
-    intentAuthContract: { Script: [oneShotMintPolicy] },
-    walletAuthContract: { Script: [oneShotMintPolicy] },
-    coldAuthContract: { Script: [oneShotMintPolicy] },
-    changeAuthContract: { Script: [oneShotMintPolicy] },
-    deleteAuthContract: { Script: [oneShotMintPolicy] },
+    hotAuthContract: { Script: [hotAuthHash] },
+    intentAuthContract: { Script: [intentAuthHash] },
+    walletAuthContract: { Script: [walletAuthHash] },
+    coldAuthContract: { Script: [coldAuthHash] },
+    changeAuthContract: { Script: [changeAuthHash] },
+    deleteAuthContract: { Script: [deleteHash] },
   };
 
   const globalSetupTx = await lucid
@@ -77,13 +86,14 @@ async function main() {
       },
       { [oneShotMintPolicy]: 1n },
     )
-    .pay.ToAddress(initAccount.address, { lovelace: 50000000n })
+    .pay.ToAddress(initAccount.address, { lovelace: 60000000n })
     .attach.MintingPolicy(oneShotMintScript)
     .complete();
 
-  const globalSetupTxHash = await (
-    await globalSetupTx.sign.withWallet().complete()
-  ).submit();
+  const globalSetupTxHash = await globalSetupTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
 
   await lucid.awaitTx(globalSetupTxHash);
 
@@ -93,11 +103,13 @@ async function main() {
     .newTx()
     .collectFrom([(await lucid.utxosAt(initAccount.address))[1]])
     .register.Stake(bulletRewardAddress)
+    .register.Stake(proxyRewardAddress)
     .complete();
 
-  const registerTxHash = await (
-    await registerTx.sign.withWallet().complete()
-  ).submit();
+  const registerTxHash = await registerTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
 
   await lucid.awaitTx(registerTxHash);
 
@@ -159,12 +171,42 @@ async function main() {
       kind: "inline",
       value: Data.to(sigDatum, SigsDatumType),
     })
+    .pay.ToContract(bulletAddress, undefined, { lovelace: 50000000n })
     .addSigner(initAccount.address)
     .attach.MintingPolicy(bulletScript)
     .attach.WithdrawalValidator(stakeBulletScript)
     .complete();
 
+  const newUserTxHash = await newUserTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(newUserTxHash);
+
+  console.log(await lucid.utxosAt(bulletAddress));
+
+  console.log(await lucid.utxosAt(proxyAddress));
+
   console.log("Done");
+
+  return lucid;
 }
 
-main().catch(console.error);
+async function spendHot(lucid: LucidEvolution) {
+  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+
+  const utxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 3));
+
+  const hotSpendTx = lucid
+    .newTx()
+    .collectFrom(utxo, Data.void())
+    .pay.ToAddress(randomAccount.address, { lovelace: 3000000n })
+    .addSigner(await lucid.wallet().address());
+}
+
+setupBullet()
+  .then((l) => l)
+  .catch(console.error);

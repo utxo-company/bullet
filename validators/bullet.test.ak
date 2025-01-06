@@ -17,18 +17,6 @@ use prefix.{nonce_prefix}
 use types.{AccountState, Secp, Setup, Signed, Verification}
 use utils.{dataify}
 
-test thing() {
-  let vk = #"03f3944e9bb6c066251c76f24e0d34f68024803cf0c8965e731d6c7994b8c08a8c"
-
-  let message =
-    #"f914545fd7828277c3e42415d2ff0574b3b47e408284ab90427fb7cc2b27dfc5"
-
-  let sig =
-    #"c4411c540879aef2b4cebd0ef70c55fd6232e2de975b53e3afdc8e374f3213136e98fca7dd2464cfd333f2f57f784504f472bc8997f667c2bf4a9739e079938a"
-
-  verify_ecdsa_signature(vk, message, sig)
-}
-
 test setup_stake_bullet() {
   let account = Script("blargh_uuuug")
 
@@ -202,15 +190,14 @@ test setup_stake_bullet_ecdsa() {
 
   let nonce_state = 1
 
-  expect message =
+  expect _message =
     config.new_user_tx_hash
       |> OutputReference(config.new_user_output_index)
       |> builtin.serialise_data()
       |> concat(config.namespace, _)
       |> blake2b_256()
 
-  trace @"TEST MESSAGE": message
-
+  // trace @"TEST MESSAGE": message
   let input =
     Input(
       config.new_user_tx_hash
