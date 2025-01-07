@@ -1,4 +1,4 @@
-use aiken/crypto.{ScriptHash, Signature}
+use aiken/crypto.{ScriptHash, Signature, VerificationKeyHash}
 use cardano/address.{Address, Credential}
 use cardano/assets.{AssetName, PolicyId}
 use cardano/transaction.{OutputReference, ScriptPurpose}
@@ -31,6 +31,7 @@ pub type OutputConstraint {
 
 pub type Constraint {
   OutConNil(Data<OutputConstraint>)
+  SignedNil(VerificationKeyHash)
   RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>)
   RefConVal(Data<InputConstraint>)
   InpConVal(Data<InputConstraint>)

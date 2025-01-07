@@ -1,30 +1,24 @@
 use aiken/builtin
-use aiken/cbor.{serialise}
 use aiken/collection/dict.{to_pairs}
 use aiken/collection/list
 use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Script}
-use cardano/assets.{Value, ada_policy_id, to_dict}
+use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Input, Output}
 use config
-use intention_types.{
-  Constraint, Intent, Nada, Options, OutputConstraint, Parallel, Sequential,
-  SignedIntention, SomeOne, SomeTwo,
-}
+use intention_types.{Constraint, Intent, Parallel, Sequential, SignedIntention}
 use prefix.{nonce_prefix}
 use types.{
   BulletCredential, Control, ParallelNonce, Vault, Verification, Withdrawal,
 }
-use utils.{at, dataify, must_have_key, ref_control_address_datum}
+use utils.{dataify, must_have_key, ref_control_address_datum}
 
-const is_nada = fn(options: Data) { dataify(Nada) == options }
-
-fn fast_combine_output_value(_left, _right) {
+pub fn fast_combine_output_value(_left, _right) {
   todo
 }
 
-fn fast_combine_values(_left, _right) {
+pub fn fast_combine_values(_left, _right) {
   todo
 }
 
@@ -439,134 +433,5 @@ pub fn fold_intent_counts(
         constraint_validator,
       )
     }
-  }
-}
-
-pub fn select_field(field_selection_list: List<Data>, constr: Data) -> Data {
-  when field_selection_list is {
-    [] -> constr
-
-    [x, ..rest] -> {
-      let x = builtin.un_i_data(x)
-
-      constr |> builtin.unconstr_fields |> at(x) |> select_field(rest, _)
-    }
-  }
-}
-
-pub fn expect_options_data_tuple_bytearray(
-  options: Data,
-) -> Options<Data, (ByteArray, ByteArray)> {
-  expect options: Options<Data, (ByteArray, ByteArray)> = options
-  options
-}
-
-pub fn handle_out_constraint(
-  outputs: List<Output>,
-  con: Data,
-  temp_val: Data,
-) -> Data {
-  expect OutputConstraint { address, value, datum, ref } = con
-
-  let runnable_val =
-    if is_nada(value) {
-      fn(_output) { True }
-    } else {
-      when expect_options_data_tuple_bytearray(value) is {
-        SomeOne(exact_value_check) ->
-          fn(output: Output) { dataify(output.value) == exact_value_check }
-
-        SomeTwo((policy, asset_name)) -> {
-          let exact_value_check =
-            [Pair(policy, [Pair(asset_name, builtin.un_i_data(temp_val))])]
-              |> dataify
-
-          if policy == ada_policy_id {
-            fn(output: Output) { dataify(output.value) == exact_value_check }
-          } else {
-            fn(output: Output) {
-              when output.value |> to_dict |> to_pairs is {
-                [] -> False
-                [_, ..rest_value] -> dataify(rest_value) == exact_value_check
-              }
-            }
-          }
-        }
-
-        Nada -> fail
-      }
-    }
-
-  let runnable_datum =
-    if is_nada(datum) {
-      runnable_val
-    } else {
-      when expect_options_data_tuple_bytearray(datum) is {
-        SomeOne(datum_check) ->
-          fn(output: Output) {
-            dataify(output.datum) == datum_check && runnable_val(output)
-          }
-
-        SomeTwo((pre_bytes, post_bytes)) -> {
-          let datum_bytes_check =
-            temp_val
-              |> serialise
-              |> bytearray.concat(pre_bytes, _)
-              |> bytearray.concat(post_bytes)
-
-          fn(output: Output) { serialise(output.datum) == datum_bytes_check }
-        }
-
-        Nada -> fail
-      }
-    }
-
-  let runnable_ref =
-    if ref == dataify(None) {
-      runnable_datum
-    } else {
-      fn(output: Output) {
-        ref == dataify(output.reference_script) && runnable_datum(output)
-      }
-    }
-
-  let runnable =
-    if is_nada(address) {
-      runnable_ref
-    } else {
-      expect address_options: Options<Data, Data> = address
-
-      when address_options is {
-        SomeOne(address) ->
-          fn(output: Output) {
-            dataify(output.address) == address && runnable_ref(output)
-          }
-
-        SomeTwo(pay_cred) ->
-          fn(output: Output) {
-            and {
-              dataify(output.address.payment_credential) == pay_cred,
-              runnable_ref(output),
-            }
-          }
-
-        Nada -> fail
-      }
-    }
-
-  apply_constraint_to_list(outputs, runnable)
-}
-
-fn check_val(_vals: List<Data>, _value: Value) {
-  todo
-}
-
-fn apply_constraint_to_list(list: List<a>, runnable: fn(a) -> Bool) -> Data {
-  expect [x, ..rest] = list
-
-  if runnable(x) {
-    dataify(None)
-  } else {
-    apply_constraint_to_list(rest, runnable)
   }
 }

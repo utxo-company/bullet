@@ -1,5 +1,5 @@
 use aiken/builtin
-use aiken/crypto.{blake2b_256, verify_ecdsa_signature}
+use aiken/crypto.{blake2b_256}
 use aiken/primitive/bytearray.{concat}
 use bullet
 use cardano/address.{Address, Inline, Script, VerificationKey}

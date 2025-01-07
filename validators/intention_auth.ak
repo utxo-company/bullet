@@ -10,15 +10,17 @@ use aiken/interval.{Interval, IntervalBound}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Redeemer, Transaction}
+use constraint_utils.{handle_inp_constraint,
+  handle_out_constraint, select_field}
 use intention_types.{
   AfterVal, BeforeVal, Constraint, InpConVal, MintConNil, OutConNil, RedeemerVal,
-  RefConVal, SignedIntention,
+  RefConVal, SignedIntention, SignedNil,
 }
-use intention_utils.{fold_intent_counts, handle_out_constraint, select_field}
+use intention_utils.{fold_intent_counts}
 use types.{Vk}
 use utils.{
   check_quorum_valid_sigs, check_valid_edd_sigs, dataify, must_find_key,
-  quantity_of, skip_list_mega_fast,
+  must_have, quantity_of, skip_list_mega_fast,
 }
 
 type Red {
@@ -48,7 +50,7 @@ validator intent_spend {
             lower_bound: IntervalBound { bound_type: lower_bound_val, .. },
             upper_bound: IntervalBound { bound_type: upper_bound_val, .. },
           },
-          extra_signatories: _,
+          extra_signatories,
           redeemers,
           datums: _,
           id: _,
@@ -83,6 +85,11 @@ validator intent_spend {
                   out_constraints,
                   temp_val,
                 )
+              SignedNil(signer) -> {
+                expect must_have(extra_signatories, signer)
+
+                dataify(None)
+              }
               RedeemerVal(script_purpose, field_selection) -> {
                 let redeemer: Redeemer =
                   constraint_redeemers
@@ -94,8 +101,10 @@ validator intent_spend {
                   |> builtin.un_list_data
                   |> select_field(redeemer)
               }
-              RefConVal(_ref_constraints) -> todo
-              InpConVal(_inp_constraints) -> todo
+              RefConVal(ref_constraints) ->
+                handle_inp_constraint(reference_inputs, ref_constraints)
+              InpConVal(inp_constraints) ->
+                handle_inp_constraint(inputs, inp_constraints)
               AfterVal(time) -> {
                 expect [lower, ..] =
                   lower_bound_val |> dataify |> builtin.unconstr_fields
