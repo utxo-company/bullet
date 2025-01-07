@@ -6,9 +6,33 @@ use cardano/address.{Address}
 use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Output}
 use config
+use macros.{list_skipper_macro_pieces}
 use prefix.{nonce_prefix}
 use types.{Nonce}
-use utils.{dataify, skip_list_mega}
+use utils.{dataify}
+
+const skip_list_5: fn(
+    fn(
+      fn(List<Output>, Int) -> List<Output>,
+      fn(List<Output>) -> List<Output>,
+      Int,
+    ) ->
+      List<Output>,
+  ) ->
+    List<Output> =
+  list_skipper_macro_pieces(5)
+
+const skip_list_macro = skip_list_fn
+
+fn skip_list_fn(outputs: List<Output>, index: Int) -> List<Output> {
+  let iterate_func, skip_func, skip_count <- skip_list_5
+
+  if index >= skip_count {
+    outputs |> skip_func |> skip_list_fn(index - skip_count)
+  } else {
+    iterate_func(outputs, index)
+  }
+}
 
 pub fn nonce_check(
   outputs: List<Output>,
@@ -21,7 +45,7 @@ pub fn nonce_check(
     True
   } else {
     expect [Output(address, value, InlineDatum(datum), _), ..] =
-      skip_list_mega(outputs, builtin.un_i_data(nonce_output_index))
+      skip_list_macro(outputs, builtin.un_i_data(nonce_output_index))
 
     expect new_nonce: Nonce = datum
 

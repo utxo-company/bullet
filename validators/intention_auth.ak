@@ -9,7 +9,7 @@ use aiken/crypto.{
 use aiken/interval.{Interval, IntervalBound}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
-use cardano/transaction.{Redeemer, Transaction}
+use cardano/transaction.{Output, Redeemer, ScriptPurpose, Transaction}
 use constraint_utils.{handle_inp_constraint,
   handle_out_constraint, select_field}
 use intention_types.{
@@ -17,10 +17,11 @@ use intention_types.{
   RefConVal, SignedIntention, SignedNil,
 }
 use intention_utils.{fold_intent_counts}
+use macros.{list_skipper_macro_pieces}
 use types.{Vk}
 use utils.{
   check_quorum_valid_sigs, check_valid_edd_sigs, dataify, must_find_key,
-  must_have, quantity_of, skip_list_mega_fast,
+  must_have, quantity_of,
 }
 
 type Red {
@@ -29,6 +30,53 @@ type Red {
   change_output_offset: Int,
   constraint_output_offset: Int,
   constraint_redeemer_offset: Int,
+}
+
+const skip_outputs_8: fn(
+    fn(
+      fn(List<Output>, Int) -> List<Output>,
+      fn(List<Output>) -> List<Output>,
+      Int,
+    ) ->
+      List<Output>,
+  ) ->
+    List<Output> =
+  list_skipper_macro_pieces(8)
+
+const skip_redeemers_10: fn(
+    fn(
+      fn(Pairs<ScriptPurpose, Redeemer>, Int) -> Pairs<ScriptPurpose, Redeemer>,
+      fn(Pairs<ScriptPurpose, Redeemer>) -> Pairs<ScriptPurpose, Redeemer>,
+      Int,
+    ) ->
+      Pairs<ScriptPurpose, Redeemer>,
+  ) ->
+    Pairs<ScriptPurpose, Redeemer> =
+  list_skipper_macro_pieces(10)
+
+const skip_redeemers = skip_redeemers_fn
+
+fn skip_outputs(outputs: List<Output>, index: Int) -> List<Output> {
+  let iterate_func, skip_func, skip_count <- skip_outputs_8
+
+  if index >= skip_count {
+    outputs |> skip_func |> skip_outputs(index - skip_count)
+  } else {
+    iterate_func(outputs, index)
+  }
+}
+
+fn skip_redeemers_fn(
+  redeemers: Pairs<ScriptPurpose, Redeemer>,
+  index: Int,
+) -> Pairs<ScriptPurpose, Redeemer> {
+  let iterate_func, skip_func, skip_count <- skip_redeemers_10
+
+  if index >= skip_count {
+    redeemers |> skip_func |> skip_redeemers_fn(index - skip_count)
+  } else {
+    iterate_func(redeemers, index)
+  }
 }
 
 /// Action to hot spend via intent
@@ -67,11 +115,10 @@ validator intent_spend {
           constraint_redeemer_offset,
         } = redeemer
 
-        let constraint_outputs =
-          skip_list_mega_fast(outputs, constraint_output_offset)
+        let constraint_outputs = skip_outputs(outputs, constraint_output_offset)
 
         let constraint_redeemers =
-          skip_list_mega_fast(redeemers, constraint_redeemer_offset)
+          skip_redeemers(redeemers, constraint_redeemer_offset)
 
         // TODO: finish constraint validator
         let handle_constraint =
@@ -146,7 +193,7 @@ validator intent_spend {
             }
           }
 
-        let folding_outputs = skip_list_mega_fast(outputs, change_output_offset)
+        let folding_outputs = skip_outputs(outputs, change_output_offset)
 
         fold_intent_counts(
           intent_user_counts |> builtin.un_list_data,

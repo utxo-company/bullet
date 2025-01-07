@@ -12,6 +12,7 @@ use config
 use prefix.{nonce_prefix}
 use types.{MessageHash, Nonce, Schnorr, Secp, Vault, Vk}
 
+// Must functions
 pub fn must_find_key(pairs: Pairs<a, b>, key: a) -> b {
   expect [Pair(k2, value), ..rest] = pairs
 
@@ -64,10 +65,47 @@ pub fn must_find_item(list: List<a>, predicate: fn(a) -> Bool) -> a {
   }
 }
 
+// Generic Utils
 pub fn inputs_inline_datum(i: Input) -> Data {
   expect InlineDatum(d) = i.output.datum
 
   d
+}
+
+pub fn dataify(d: Data) -> Data {
+  d
+}
+
+pub fn quantity_of(val: Value, policy: PolicyId, asset: AssetName) -> Int {
+  val |> to_dict() |> to_pairs() |> do_quantity_of(policy, asset)
+}
+
+fn do_quantity_of(
+  val: Pairs<ByteArray, Dict<ByteArray, Int>>,
+  policy: PolicyId,
+  asset: AssetName,
+) -> Int {
+  when val is {
+    [] -> 0
+    [Pair(x, y), ..xs] ->
+      if x == policy {
+        do_asset_of(y |> to_pairs(), asset)
+      } else {
+        do_quantity_of(xs, policy, asset)
+      }
+  }
+}
+
+fn do_asset_of(val: Pairs<ByteArray, Int>, asset: AssetName) -> Int {
+  when val is {
+    [] -> 0
+    [Pair(x, y), ..xs] ->
+      if x == asset {
+        y
+      } else {
+        do_asset_of(xs, asset)
+      }
+  }
 }
 
 pub fn at(list: List<a>, index: Int) -> a {
@@ -94,27 +132,16 @@ pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
   }
 }
 
-pub fn ref_control_address_datum(
-  ref_inputs: List<Input>,
-  ref_value: Data,
-) -> (Address, Data) {
-  expect [input, ..rest] = ref_inputs
-
-  let Input { output, .. } = input
-
-  // This won't error since every input has to at least have ada
-  expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
-
-  if dataify(nft_value) == ref_value {
-    let Output { address, datum, .. } = output
-
-    expect InlineDatum(control_datum) = datum
-    (address, control_datum)
-  } else {
-    ref_control_address_datum(rest, ref_value)
-  }
+/// Produce a plutusV3 script hash to match the onchain comparison
+/// with script ref field in Output
+pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
+  bytearray.concat(#"03582401010048811c", bytes)
+    |> bytearray.concat(#"0001")
+    |> builtin.blake2b_224
+    |> Some
 }
 
+// Sig checks
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_quorum_valid_sigs(
@@ -287,10 +314,7 @@ pub fn check_all_tx_observed_and_hashes(
   }
 }
 
-pub fn dataify(d: Data) -> Data {
-  d
-}
-
+// Input filters
 pub fn filter_hot_inputs(
   list: List<Input>,
   address: Address,
@@ -367,6 +391,7 @@ pub fn filter_deleting_inputs(
   }
 }
 
+// Filter inputs and handle nonce
 pub fn resolve_user_tx(
   user_stake: ScriptHash,
   list: List<Input>,
@@ -436,173 +461,4 @@ pub fn resolve_user_tx(
       }
     }
   }
-}
-
-pub fn quantity_of(val: Value, policy: PolicyId, asset: AssetName) -> Int {
-  val |> to_dict() |> to_pairs() |> do_quantity_of(policy, asset)
-}
-
-fn do_quantity_of(
-  val: Pairs<ByteArray, Dict<ByteArray, Int>>,
-  policy: PolicyId,
-  asset: AssetName,
-) -> Int {
-  when val is {
-    [] -> 0
-    [Pair(x, y), ..xs] ->
-      if x == policy {
-        do_asset_of(y |> to_pairs(), asset)
-      } else {
-        do_quantity_of(xs, policy, asset)
-      }
-  }
-}
-
-fn do_asset_of(val: Pairs<ByteArray, Int>, asset: AssetName) -> Int {
-  when val is {
-    [] -> 0
-    [Pair(x, y), ..xs] ->
-      if x == asset {
-        y
-      } else {
-        do_asset_of(xs, asset)
-      }
-  }
-}
-
-pub fn skip_list_mega_fast(l: List<a>, i: Int) -> List<a> {
-  if i < 4 {
-    skip_list_mega(l, i)
-  } else {
-    l
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> skip_list_mega_fast(i - 4)
-  }
-}
-
-pub fn skip_list_mega(l: List<a>, i: Int) -> List<a> {
-  if i == 0 {
-    l
-  } else {
-    let i = i - 1
-    let l = builtin.tail_list(l)
-
-    if i == 0 {
-      l
-    } else {
-      let i = i - 1
-      let l = builtin.tail_list(l)
-
-      if i == 0 {
-        l
-      } else {
-        builtin.tail_list(l)
-      }
-    }
-  }
-}
-
-const x = [1, 2, 3, 5, 7, 8, 0, 10, 11, 212, 23, 25]
-
-test skip_list_speed_3_s() {
-  ( skip_list_mega_fast(x, 0) |> builtin.head_list ) == 1
-}
-
-test skip_list_speed_4_s() {
-  ( skip_list_mega_fast(x, 1) |> builtin.head_list ) == 2
-}
-
-test skip_list_speed_5_s() {
-  ( skip_list_mega_fast(x, 2) |> builtin.head_list ) == 3
-}
-
-test skip_list_speed_6_s() {
-  ( skip_list_mega_fast(x, 3) |> builtin.head_list ) == 5
-}
-
-test skip_list_speed_7_s() {
-  ( skip_list_mega_fast(x, 4) |> builtin.head_list ) == 7
-}
-
-test skip_list_speed_8_s() {
-  ( skip_list_mega_fast(x, 5) |> builtin.head_list ) == 8
-}
-
-test skip_list_speed_9_s() {
-  ( skip_list_mega_fast(x, 6) |> builtin.head_list ) == 0
-}
-
-test skip_list_speed_1_s() {
-  ( skip_list_mega_fast(x, 8) |> builtin.head_list ) == 11
-}
-
-test skip_list_speed_11_s() {
-  ( skip_list_mega_fast(x, 9) |> builtin.head_list ) == 212
-}
-
-test skip_list_speed_2_s() {
-  ( skip_list_mega_fast(x, 11) |> builtin.head_list ) == 25
-}
-
-/// Produce a plutusV3 script hash to match the onchain comparison
-/// with script ref field in Output
-pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
-  bytearray.concat(#"03582401010048811c", bytes)
-    |> bytearray.concat(#"0001")
-    |> builtin.blake2b_224
-    |> Some
-}
-
-fn interesting(i: Int) {
-  if i == 0 {
-    identity
-  } else {
-    let func = interesting(i - 1)
-
-    fn(list) { func(list) |> builtin.tail_list }
-  }
-}
-
-const something = interesting(8)
-
-test other() {
-  let x = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
-
-  let y = something(x)
-
-  let g = something(x) |> builtin.head_list
-
-  y == ["i"] && g == "i"
-}
-
-test other_2() {
-  let x = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
-
-  let y =
-    x
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-
-  let g =
-    x
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.tail_list
-      |> builtin.head_list
-
-  y == ["i"] && g == "i"
 }

@@ -3,7 +3,7 @@ use aiken/collection/dict.{to_pairs}
 use aiken/collection/list
 use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
-use cardano/address.{Address, Credential, Script}
+use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Input, Output}
 use config
@@ -12,7 +12,7 @@ use prefix.{nonce_prefix}
 use types.{
   BulletCredential, Control, ParallelNonce, Vault, Verification, Withdrawal,
 }
-use utils.{dataify, must_have_key, ref_control_address_datum}
+use utils.{dataify, must_have_key, ref_control_datum}
 
 pub fn fast_combine_output_value(_left, _right) {
   todo
@@ -309,12 +309,16 @@ pub fn fold_intent_counts(
 
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-      let (user_address, control_datum) =
+      let address_stake_part = Some(Inline(Script(user_stake)))
+
+      let user_address = Address(Script(config.bullet_hash), address_stake_part)
+
+      let control_datum =
         reference_inputs
-          |> ref_control_address_datum(expected_nft)
+          |> ref_control_datum(expected_nft)
 
       let nonce_address =
-        Address(Script(config.nonce_bullet_hash), user_address.stake_credential)
+        Address(Script(config.nonce_bullet_hash), address_stake_part)
 
       expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
 
