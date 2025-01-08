@@ -1,47 +1,9 @@
 use aiken/builtin
 
-const skipperoo: fn(List<Int>, Int) -> List<Int> = list_skipper_macro_slow(4)
-
-fn skipperoni(list, index) {
-  skipperoo(list, index)
-}
-
-test skip_list_speed_1_g() {
-  and {
-    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
-    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
-    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
-  }
-}
-
-pub fn list_skipper_macro_slow(skip_count: Int) {
-  let func = list_skipper_macro_pieces2(skip_count)
-
-  let iterate_func, skip_func <- func
-
-  fn(list, index) {
-    if index >= skip_count {
-      list
-        |> skip_func
-        |> list_skipper_macro_slow(skip_count)(index - skip_count)
-    } else {
-      iterate_func(list, index)
-    }
-  }
-}
-
-pub fn list_skipper_macro_pieces2(
-  skip_count: Int,
-) -> fn(fn(fn(List<a>, Int) -> List<a>, fn(List<a>) -> List<a>) -> b) -> b {
-  let iterate_func = iterate_index(skip_count - 2)
-
-  let skip_func = skip_list(skip_count)
-
-  fn(a) { a(iterate_func, skip_func) }
-}
-
 // List skip functions and tests
-// Skip_count must be greater than 2
+// Skip_count must be greater than or equal to 2
+/// This function was found to have the same performance as writing
+/// by hand. The other functions below will be improved in following Aiken versions
 pub fn list_skipper_macro_pieces(
   skip_count: Int,
 ) -> fn(fn(fn(List<a>, Int) -> List<a>, fn(List<a>) -> List<a>, Int) -> b) -> b {
@@ -50,36 +12,6 @@ pub fn list_skipper_macro_pieces(
   let skip_func = skip_list(skip_count)
 
   fn(a) { a(iterate_func, skip_func, skip_count) }
-}
-
-// List skip functions and tests
-// Skip_count must be greater than 2
-pub fn list_skipper_macro_deprecated(
-  skip_count: Int,
-) -> fn(List<a>, Int) -> List<a> {
-  let iterate_func = iterate_index(skip_count - 2)
-
-  let skip_func = skip_list(skip_count)
-
-  do_list_skipper_macro(iterate_func, skip_func, skip_count)
-}
-
-fn do_list_skipper_macro(
-  iterate_func,
-  skip_func,
-  skip_count,
-) -> fn(List<a>, Int) -> List<a> {
-  fn(list, index) {
-    if index >= skip_count {
-      list
-        |> skip_func
-        |> do_list_skipper_macro(iterate_func, skip_func, skip_count)(
-            index - skip_count,
-          )
-    } else {
-      iterate_func(list, index)
-    }
-  }
 }
 
 fn skip_list(skip_count: Int) -> fn(List<a>) -> List<a> {
@@ -118,6 +50,74 @@ fn iterate_index(skip_count: Int) -> fn(List<a>, Int) -> List<a> {
       }
     }
   }
+}
+
+const skipperoo: fn(List<Int>, Int) -> List<Int> = list_skipper_macro_slow(4)
+
+fn skipperoni(list, index) {
+  skipperoo(list, index)
+}
+
+test skip_list_speed_1_g() {
+  and {
+    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
+    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
+    ( skipperoni(x, 8) |> builtin.head_list ) == 11,
+  }
+}
+
+pub fn list_skipper_macro_slow(skip_count: Int) {
+  let func = list_skipper_macro_pieces2(skip_count)
+
+  let iterate_func, skip_func <- func
+
+  fn(list, index) {
+    if index >= skip_count {
+      list
+        |> skip_func
+        |> list_skipper_macro_slow(skip_count)(index - skip_count)
+    } else {
+      iterate_func(list, index)
+    }
+  }
+}
+
+pub fn list_skipper_macro_deprecated(
+  skip_count: Int,
+) -> fn(List<a>, Int) -> List<a> {
+  let iterate_func = iterate_index(skip_count - 2)
+
+  let skip_func = skip_list(skip_count)
+
+  do_list_skipper_macro(iterate_func, skip_func, skip_count)
+}
+
+fn do_list_skipper_macro(
+  iterate_func,
+  skip_func,
+  skip_count,
+) -> fn(List<a>, Int) -> List<a> {
+  fn(list, index) {
+    if index >= skip_count {
+      list
+        |> skip_func
+        |> do_list_skipper_macro(iterate_func, skip_func, skip_count)(
+            index - skip_count,
+          )
+    } else {
+      iterate_func(list, index)
+    }
+  }
+}
+
+pub fn list_skipper_macro_pieces2(
+  skip_count: Int,
+) -> fn(fn(fn(List<a>, Int) -> List<a>, fn(List<a>) -> List<a>) -> b) -> b {
+  let iterate_func = iterate_index(skip_count - 2)
+
+  let skip_func = skip_list(skip_count)
+
+  fn(a) { a(iterate_func, skip_func) }
 }
 
 pub fn skip_list_mega_fast(l: List<a>, i: Int) -> List<a> {

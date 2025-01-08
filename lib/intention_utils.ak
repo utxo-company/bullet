@@ -5,7 +5,7 @@ use aiken/crypto.{Signature}
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Inline, Script}
 use cardano/assets.{to_dict}
-use cardano/transaction.{InlineDatum, Input, Output}
+use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use config
 use intention_types.{Constraint, Intent, Parallel, Sequential, SignedIntention}
 use prefix.{nonce_prefix}
@@ -52,6 +52,7 @@ fn fold_inputs(
         if InlineDatum(Vault) == datum {
           fail
         } else if InlineDatum(ParallelNonce) == datum {
+          // TODO: also replace
           let new_value = acc_value |> assets.merge(value)
 
           let nonce_list = list.delete(parallel_nonce_list, output_reference)
@@ -68,6 +69,7 @@ fn fold_inputs(
             callback,
           )
         } else {
+          // TODO: Replace
           let new_value = acc_value |> assets.merge(value)
 
           fold_inputs(
@@ -140,7 +142,6 @@ fn fold_inputs(
   }
 }
 
-/// Done
 fn fold_constraints(
   constraints: List<Data<Constraint>>,
   temp_val: Data,
@@ -156,13 +157,12 @@ fn fold_constraints(
   }
 }
 
-/// Done
 fn fold_intents_no_sigs(
   user_stake,
   constraint_validator,
   intents: List<Data<SignedIntention>>,
   remaining_intents: List<Data<SignedIntention>>,
-  parallel_nonce_list,
+  parallel_nonce_list: List<OutputReference>,
   first_nonce,
   last_nonce,
   additional_intents,
@@ -305,7 +305,7 @@ pub fn fold_intent_counts(
         signatures,
       } = signed_intent
 
-      expect additional_intents: ByteArray = additional_intent_count
+      let additional_intents = builtin.un_b_data(additional_intent_count)
 
       let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -322,8 +322,9 @@ pub fn fold_intent_counts(
 
       expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
 
-      expect quorum: Int = quorum
+      let quorum = builtin.un_i_data(quorum)
 
+      // TODO: optimize
       expect hot_cred_hash: BulletCredential = hot_cred_hash
 
       expect

@@ -79,6 +79,11 @@ fn skip_redeemers_fn(
   }
 }
 
+fn expect_item(constr: Data) {
+  expect [item, ..] = constr |> builtin.unconstr_fields
+  item
+}
+
 /// Action to hot spend via intent
 validator intent_spend {
   else(sc: ScriptContext) {
@@ -120,7 +125,6 @@ validator intent_spend {
         let constraint_redeemers =
           skip_redeemers(redeemers, constraint_redeemer_offset)
 
-        // TODO: finish constraint validator
         let handle_constraint =
           fn(constraint: Data, temp_val: Data) {
             expect constraint: Constraint = constraint
@@ -153,23 +157,21 @@ validator intent_spend {
               InpConVal(inp_constraints) ->
                 handle_inp_constraint(inputs, inp_constraints)
               AfterVal(time) -> {
-                expect [lower, ..] =
-                  lower_bound_val |> dataify |> builtin.unconstr_fields
+                let lower = expect_item(lower_bound_val)
 
                 expect time < builtin.un_i_data(lower)
 
                 dataify(lower)
               }
               BeforeVal(time) -> {
-                expect [upper, ..] =
-                  upper_bound_val |> dataify |> builtin.unconstr_fields
+                let upper = expect_item(upper_bound_val)
 
                 expect time >= builtin.un_i_data(upper)
 
                 dataify(upper)
               }
               MintConNil(p, an, amount) -> {
-                expect ( mint |> quantity_of(p, an) ) == amount
+                expect quantity_of(mint, p, an) == amount
 
                 dataify(None)
               }
