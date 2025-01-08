@@ -4,7 +4,7 @@ A series of micro-validators for account abstraction that are called via a proxy
 ## Building
 
 ```sh
-./compile [Preview|Preprod|Mainnet]
+./compile <Preview|Preprod|Mainnet> [verbose|silent|compact]
 ```
 
 ## Configuring
@@ -15,16 +15,37 @@ Then follow the build process above.
 **aiken.toml**
 ```toml
 [config.preview]
-bullet_hash = "<Generated>"
-nonce_bullet_hash = "<Generated>"
-proxy_hash = "<Generated>"
-stake_proxy_hash = "<Generated>"
-new_user_tx_hash = "<Fill in User Tx Hash>"
-new_user_output_index = "<Fill in User Output Index>"
-one_shot_tx_hash = "<Generated via Setup>"
-one_shot_output_index = <Generated via Setup>
-one_shot_mint_hash = "<Generated>"
+new_user_output_index = <Fill in User Output Index>
+one_shot_output_index = <Included via Setup>
 namespace = "Bullet"
+
+[config.preview.bullet_hash]
+bytes = "<Generated>"
+encoding = "hex"
+
+[config.preview.nonce_bullet_hash]
+bytes = "<Generated>"
+encoding = "hex"
+
+[config.preview.proxy_hash]
+bytes = "<Generated>"
+encoding = "hex"
+
+[config.preview.stake_proxy_hash]
+bytes = "<Generated>"
+encoding = "hex"
+
+[config.preview.new_user_tx_hash]
+bytes = "<Fill in User Tx Hash>"
+encoding = "hex"
+
+[config.preview.one_shot_tx_hash]
+bytes = "<Included via Setup>"
+encoding = "hex"
+
+[config.preview.one_shot_mint_hash]
+bytes = "<Generated>"
+encoding = "hex"
 ```
 
 ## Testing

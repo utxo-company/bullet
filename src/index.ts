@@ -15,6 +15,8 @@ import {
 
 import {
   BulletDatumType,
+  HotAccountSpendType,
+  ProxyRedeemerType,
   ProxyStateType,
   SigsDatumType,
   StakeBulletRedeemerType,
@@ -30,11 +32,14 @@ import {
   coldAuthHash,
   deleteHash,
   hotAuthHash,
+  hotAuthRewardAddress,
+  hotAuthScript,
   intentAuthHash,
   oneShotMintPolicy,
   oneShotMintScript,
   proxyAddress,
   proxyRewardAddress,
+  proxyScript,
   stakeBulletScript,
   walletAuthHash,
 } from "./bulletConsts";
@@ -104,6 +109,7 @@ async function setupBullet() {
     .collectFrom([(await lucid.utxosAt(initAccount.address))[1]])
     .register.Stake(bulletRewardAddress)
     .register.Stake(proxyRewardAddress)
+    .register.Stake(hotAuthRewardAddress)
     .complete();
 
   const registerTxHash = await registerTx.sign
@@ -188,7 +194,7 @@ async function setupBullet() {
 
   console.log(await lucid.utxosAt(proxyAddress));
 
-  console.log("Done");
+  console.log("Done Setup");
 
   return lucid;
 }
@@ -200,13 +206,45 @@ async function spendHot(lucid: LucidEvolution) {
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 3));
 
-  const hotSpendTx = lucid
+  const refUtxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 0));
+
+  const refUtxos2 = await lucid.utxosAt(proxyAddress);
+
+  const hotSpendRedeemer: HotAccountSpendType = {
+    user_stake: bulletStakeHash,
+    sigs: [],
+  };
+
+  const hotSpendTx = await lucid
     .newTx()
+    .readFrom(refUtxo)
+    .readFrom(refUtxos2)
     .collectFrom(utxo, Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("HotCred", ProxyRedeemerType))
+    .withdraw(
+      hotAuthRewardAddress,
+      0n,
+      Data.to(hotSpendRedeemer, HotAccountSpendType),
+    )
     .pay.ToAddress(randomAccount.address, { lovelace: 3000000n })
-    .addSigner(await lucid.wallet().address());
+    .addSigner(await lucid.wallet().address())
+    .attach.SpendingValidator(bulletScript)
+    .attach.WithdrawalValidator(proxyScript)
+    .attach.WithdrawalValidator(hotAuthScript)
+    .complete();
+
+  const hotSpendTxHash = await hotSpendTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(hotSpendTxHash);
+
+  console.log("Done HotSpend");
 }
 
 setupBullet()
-  .then((l) => l)
+  .then((l) => spendHot(l))
   .catch(console.error);

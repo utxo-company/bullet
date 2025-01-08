@@ -98,6 +98,20 @@ export type ProxyStateType = Data.Static<typeof ProxyStateSchema>;
 
 export const ProxyStateType = ProxyStateSchema as unknown as ProxyStateType;
 
+export const ProxyRedeemerSchema = Data.Enum([
+  Data.Literal("HotCred"),
+  Data.Literal("Intention"),
+  Data.Literal("VaultSpend"),
+  Data.Literal("ColdCred"),
+  Data.Literal("ColdControl"),
+  Data.Literal("Delete"),
+]);
+
+export type ProxyRedeemerType = Data.Static<typeof ProxyRedeemerSchema>;
+
+export const ProxyRedeemerType =
+  ProxyRedeemerSchema as unknown as ProxyRedeemerType;
+
 export const SigsDatumSchema = Data.Tuple([
   Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
   Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
@@ -106,3 +120,13 @@ export const SigsDatumSchema = Data.Tuple([
 export type SigsDatumType = Data.Static<typeof SigsDatumSchema>;
 
 export const SigsDatumType = SigsDatumSchema as unknown as SigsDatumType;
+
+export const HotAccountSpendSchema = Data.Object({
+  user_stake: Data.Bytes({ minLength: 28, maxLength: 28 }),
+  sigs: Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+});
+
+export type HotAccountSpendType = Data.Static<typeof HotAccountSpendSchema>;
+
+export const HotAccountSpendType =
+  HotAccountSpendSchema as unknown as HotAccountSpendType;

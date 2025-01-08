@@ -173,3 +173,8 @@ export const coldAuthHash = validatorToScriptHash(coldAuthScript);
 export const changeAuthHash = validatorToScriptHash(changeAuthScript);
 
 export const deleteHash = validatorToScriptHash(deleteScript);
+
+export const hotAuthRewardAddress = validatorToRewardAddress(
+  "Preview",
+  hotAuthScript,
+);
