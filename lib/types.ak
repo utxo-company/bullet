@@ -78,7 +78,7 @@ pub type HotAccountStake {
 pub type AccountSpend {
   user_stake: ScriptHash,
   sigs: List<Signature>,
-  index: Data,
+  index: Data<Int>,
 }
 
 pub type ChangeCredentials {

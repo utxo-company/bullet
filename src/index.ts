@@ -14,6 +14,7 @@ import {
 } from "@lucid-evolution/lucid";
 
 import {
+  AccountSpendType,
   BulletDatumType,
   HotAccountSpendType,
   ProxyRedeemerType,
@@ -25,6 +26,8 @@ import {
   bulletAddress,
   bulletMintPolicy,
   bulletNonceAddress,
+  bulletNonceScript,
+  bulletNonceValidator,
   bulletRewardAddress,
   bulletScript,
   bulletStakeHash,
@@ -42,6 +45,8 @@ import {
   proxyScript,
   stakeBulletScript,
   walletAuthHash,
+  walletAuthRewardAddress,
+  walletAuthScript,
 } from "./bulletConsts";
 
 async function setupBullet() {
@@ -91,7 +96,7 @@ async function setupBullet() {
       },
       { [oneShotMintPolicy]: 1n },
     )
-    .pay.ToAddress(initAccount.address, { lovelace: 60000000n })
+    .pay.ToAddress(initAccount.address, { lovelace: 70000000n })
     .attach.MintingPolicy(oneShotMintScript)
     .complete();
 
@@ -110,6 +115,7 @@ async function setupBullet() {
     .register.Stake(bulletRewardAddress)
     .register.Stake(proxyRewardAddress)
     .register.Stake(hotAuthRewardAddress)
+    .register.Stake(walletAuthRewardAddress)
     .complete();
 
   const registerTxHash = await registerTx.sign
@@ -199,7 +205,7 @@ async function setupBullet() {
   return lucid;
 }
 
-async function spendHot(lucid: LucidEvolution) {
+async function hotSpend(lucid: LucidEvolution) {
   const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
 
   const utxo = await lucid
@@ -245,6 +251,68 @@ async function spendHot(lucid: LucidEvolution) {
   console.log("Done HotSpend");
 }
 
+async function walletSpend(lucid: LucidEvolution) {
+  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+
+  const utxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 3));
+
+  const utxo2 = await lucid.utxosAt(bulletNonceAddress);
+
+  const refUtxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 0));
+
+  const refUtxos2 = await lucid.utxosAt(proxyAddress);
+
+  const walletSpendRedeemer: AccountSpendType = {
+    user_stake: bulletStakeHash,
+    sigs: [],
+    index: 1n,
+  };
+
+  const walletSpendTx = await lucid
+    .newTx()
+    .readFrom(refUtxo)
+    .readFrom(refUtxos2)
+    .collectFrom(utxo2, Data.void())
+    .collectFrom(utxo, Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("VaultSpend", ProxyRedeemerType))
+    .withdraw(
+      walletAuthRewardAddress,
+      0n,
+      Data.to(walletSpendRedeemer, AccountSpendType),
+    )
+    .pay.ToAddress(randomAccount.address, { lovelace: 3500000n })
+    .pay.ToContract(
+      bulletNonceAddress,
+      { kind: "inline", value: Data.to(2n) },
+      {
+        [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n,
+      },
+    )
+    .addSigner(await lucid.wallet().address())
+    .attach.SpendingValidator(bulletScript)
+    .attach.WithdrawalValidator(proxyScript)
+    .attach.WithdrawalValidator(walletAuthScript)
+    .attach.SpendingValidator(bulletNonceScript)
+    .complete();
+
+  const walletSpendTxHash = await walletSpendTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(walletSpendTxHash);
+
+  console.log("Done WalletSpend");
+}
+
 setupBullet()
-  .then((l) => spendHot(l))
+  .then((l) => hotSpend(l))
+  .catch(console.error);
+
+setupBullet()
+  .then((l) => walletSpend(l))
   .catch(console.error);

@@ -6,20 +6,12 @@ use cardano/address.{Address}
 use cardano/assets.{to_dict}
 use cardano/transaction.{InlineDatum, Output}
 use config
-use macros.{list_skipper_macro_pieces}
+use macros.{SkipFuncPieces, list_skipper_macro_pieces}
 use prefix.{nonce_prefix}
 use types.{Nonce}
 use utils.{dataify}
 
-const skip_list_5: fn(
-    fn(
-      fn(List<Output>, Int) -> List<Output>,
-      fn(List<Output>) -> List<Output>,
-      Int,
-    ) ->
-      List<Output>,
-  ) ->
-    List<Output> =
+const skip_list_5: SkipFuncPieces<Output, List<Output>> =
   list_skipper_macro_pieces(5)
 
 const skip_list_macro = skip_list_fn

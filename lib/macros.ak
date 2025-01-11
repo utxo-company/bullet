@@ -1,12 +1,13 @@
 use aiken/builtin
 
+pub type SkipFuncPieces<a, b> =
+  fn(fn(fn(List<a>, Int) -> List<a>, fn(List<a>) -> List<a>, Int) -> b) -> b
+
 // List skip functions and tests
 // Skip_count must be greater than or equal to 2
 /// This function was found to have the same performance as writing
 /// by hand. The other functions below will be improved in following Aiken versions
-pub fn list_skipper_macro_pieces(
-  skip_count: Int,
-) -> fn(fn(fn(List<a>, Int) -> List<a>, fn(List<a>) -> List<a>, Int) -> b) -> b {
+pub fn list_skipper_macro_pieces(skip_count: Int) -> SkipFuncPieces<a, b> {
   let iterate_func = iterate_index(skip_count - 2)
 
   let skip_func = skip_list(skip_count)

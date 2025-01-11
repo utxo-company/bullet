@@ -130,3 +130,14 @@ export type HotAccountSpendType = Data.Static<typeof HotAccountSpendSchema>;
 
 export const HotAccountSpendType =
   HotAccountSpendSchema as unknown as HotAccountSpendType;
+
+export const AccountSpendSchema = Data.Object({
+  user_stake: Data.Bytes({ minLength: 28, maxLength: 28 }),
+  sigs: Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+  index: Data.Integer({ minimum: 0 }),
+});
+
+export type AccountSpendType = Data.Static<typeof AccountSpendSchema>;
+
+export const AccountSpendType =
+  AccountSpendSchema as unknown as AccountSpendType;

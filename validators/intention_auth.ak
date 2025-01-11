@@ -17,7 +17,7 @@ use intention_types.{
   RefConVal, SignedIntention, SignedNil,
 }
 use intention_utils.{fold_intent_counts}
-use macros.{list_skipper_macro_pieces}
+use macros.{SkipFuncPieces, list_skipper_macro_pieces}
 use types.{Vk}
 use utils.{
   check_quorum_valid_sigs, check_valid_edd_sigs, dataify, must_find_key,
@@ -32,26 +32,13 @@ type Red {
   constraint_redeemer_offset: Int,
 }
 
-const skip_outputs_8: fn(
-    fn(
-      fn(List<Output>, Int) -> List<Output>,
-      fn(List<Output>) -> List<Output>,
-      Int,
-    ) ->
-      List<Output>,
-  ) ->
-    List<Output> =
+const skip_outputs_8: SkipFuncPieces<Output, List<Output>> =
   list_skipper_macro_pieces(8)
 
-const skip_redeemers_10: fn(
-    fn(
-      fn(Pairs<ScriptPurpose, Redeemer>, Int) -> Pairs<ScriptPurpose, Redeemer>,
-      fn(Pairs<ScriptPurpose, Redeemer>) -> Pairs<ScriptPurpose, Redeemer>,
-      Int,
-    ) ->
-      Pairs<ScriptPurpose, Redeemer>,
-  ) ->
-    Pairs<ScriptPurpose, Redeemer> =
+const skip_redeemers_10: SkipFuncPieces<
+    Pair<ScriptPurpose, Redeemer>,
+    Pairs<ScriptPurpose, Redeemer>,
+  > =
   list_skipper_macro_pieces(10)
 
 const skip_redeemers = skip_redeemers_fn

@@ -178,3 +178,8 @@ export const hotAuthRewardAddress = validatorToRewardAddress(
   "Preview",
   hotAuthScript,
 );
+
+export const walletAuthRewardAddress = validatorToRewardAddress(
+  "Preview",
+  walletAuthScript,
+);
