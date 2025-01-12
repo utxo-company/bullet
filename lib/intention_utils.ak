@@ -1,10 +1,13 @@
 use aiken/builtin
+use aiken/cbor.{serialise}
 use aiken/collection/dict.{to_pairs}
 use aiken/collection/list
-use aiken/crypto.{Signature}
-use aiken/primitive/bytearray
+use aiken/crypto.{
+  ScriptHash, Signature, VerificationKey, VerificationKeyHash, blake2b_256,
+}
+use aiken/primitive/bytearray.{concat}
 use cardano/address.{Address, Credential, Inline, Script}
-use cardano/assets.{to_dict}
+use cardano/assets.{AssetName, PolicyId, Value, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use config
 use intention_types.{Constraint, Intent, Parallel, Sequential, SignedIntention}
@@ -27,15 +30,15 @@ fn combine_value_leaving(_value_leaving_left, _value_leaving_right) {
 }
 
 fn fold_inputs(
-  user_stake,
-  user_address,
-  nonce_address,
-  first_nonce,
-  inputs,
-  remaining_inputs,
-  acc_value,
-  parallel_nonce_list,
-  callback,
+  user_stake: ScriptHash,
+  user_address: Address,
+  nonce_address: Address,
+  first_nonce: Int,
+  inputs: List<Input>,
+  remaining_inputs: List<Input>,
+  acc_value: Value,
+  parallel_nonce_list: List<OutputReference>,
+  callback: fn(Value, List<Input>) -> Bool,
 ) {
   when inputs is {
     [] -> {
@@ -145,7 +148,7 @@ fn fold_inputs(
 fn fold_constraints(
   constraints: List<Data<Constraint>>,
   temp_val: Data,
-  constraint_validator,
+  constraint_validator: fn(Data<Constraint>, Data) -> Data,
 ) -> Bool {
   expect [constraint, ..rest] = constraints
 
@@ -157,25 +160,35 @@ fn fold_constraints(
   }
 }
 
-fn fold_intents_no_sigs(
-  user_stake,
-  constraint_validator,
+fn fold_intents(
+  validate_signatures: fn(ByteArray, Data, ByteArray, Data) -> Bool,
+  // Side effect is fail for failed constraint
+  constraint_validator: fn(Data<Constraint>, Data) -> Data,
   intents: List<Data<SignedIntention>>,
   remaining_intents: List<Data<SignedIntention>>,
   parallel_nonce_list: List<OutputReference>,
-  first_nonce,
-  last_nonce,
-  additional_intents,
-  index,
-  callback,
+  first_nonce: Int,
+  last_nonce: Int,
+  additional_intents: ByteArray,
+  index: Int,
+  callback: fn(
+    Int,
+    Int,
+    List<OutputReference>,
+    List<(PolicyId, AssetName, Int)>,
+    List<Data<SignedIntention>>,
+  ) ->
+    Bool,
 ) {
   if index == 0 {
     expect [signed_intent, ..rest] = intents
 
     // deal with intent here
     expect SignedIntention {
-      user_stake,
-      intent: Intent { constraints, value_leaving, nonce },
+      prefix,
+      intent: Intent { constraints, value_leaving, nonce } as intent,
+      postfix,
+      signatures,
       ..
     } = signed_intent
 
@@ -183,6 +196,8 @@ fn fold_intents_no_sigs(
       (constraints
         |> builtin.un_list_data
         |> fold_constraints(None, constraint_validator))?
+
+    expect validate_signatures(prefix, intent, postfix, signatures)
 
     // Deal with nonce
     let last_nonce, parallel_nonce_list <-
@@ -224,8 +239,8 @@ fn fold_intents_no_sigs(
         total_value_leaving,
         remaining_intents,
       <-
-        fold_intents_no_sigs(
-          user_stake,
+        fold_intents(
+          validate_signatures,
           constraint_validator,
           rest,
           remaining_intents,
@@ -258,8 +273,8 @@ fn fold_intents_no_sigs(
       total_value_leaving,
       remaining_intents,
     <-
-      fold_intents_no_sigs(
-        user_stake,
+      fold_intents(
+        validate_signatures,
         constraint_validator,
         rest,
         remaining_intents,
@@ -289,8 +304,9 @@ pub fn fold_intent_counts(
   // The earlier outputs would be related to other dApps or intents
   offset_outputs: List<Output>,
   withdrawals: Pairs<Credential, Int>,
-  validate_signature,
-  constraint_validator,
+  validate_signature: fn(Int, Data, Pairs<VerificationKeyHash, VerificationKey>) ->
+    fn(List<Signature>, ByteArray) -> Bool,
+  constraint_validator: fn(Data<Constraint>, Data) -> Data,
 ) -> Bool {
   when intent_counts is {
     [] -> intentions == [] && inputs == []
@@ -350,6 +366,14 @@ pub fn fold_intent_counts(
         fn(callback) {
           when hot_cred_hash is {
             Withdrawal(sc) -> {
+              // So you are probably wondering in what case do you use script withdraw
+              // trick over simply providing a public key?
+              // The answer is as Plutus versions progress and ZK folding schemes improve,
+              // I can see a world where most accounts depend on a validator that runs a single ZK-STARK
+              // or ZK-SNARK to validate each intention was signed by the owner of the respective account.
+              // Basically a user would produce an intention plus a ZK-proof and the sequencer
+              // would fold all the ZK-proofs into a single proof that checks all intentions that were
+              // included in the tx were properly signed. All without revealing the users signing or verifying key.
               expect must_have_key(withdrawals, sc)?
 
               if builtin.find_first_set_bit(additional_intents) == -1 {
@@ -367,8 +391,8 @@ pub fn fold_intent_counts(
                   builtin.shift_bytearray(additional_intents, -index)
 
                 // Recursive function to get the remaining value leaving and nonces
-                fold_intents_no_sigs(
-                  user_stake,
+                fold_intents(
+                  fn(_a, _b, _c, _d) { True },
                   constraint_validator,
                   rest_intents,
                   [],
@@ -385,15 +409,26 @@ pub fn fold_intent_counts(
               let validate_signature_post =
                 validate_signature(quorum, hot_cred, vks)
 
-              let message =
-                builtin.serialise_data(intent)
-                  |> bytearray.concat(prefix, _)
-                  |> bytearray.concat(postfix)
-                  |> builtin.blake2b_256
+              let validate_signatures =
+                fn(
+                  prefix: ByteArray,
+                  intent: Data,
+                  postfix: ByteArray,
+                  signatures: Data,
+                ) {
+                  expect signatures: List<Signature> = signatures
 
-              expect signatures: List<Signature> = signatures
+                  let message =
+                    intent
+                      |> serialise()
+                      |> concat(prefix, _)
+                      |> concat(postfix)
+                      |> blake2b_256()
 
-              expect validate_signature_post(signatures, message)
+                  validate_signature_post(signatures, message)
+                }
+
+              expect validate_signatures(prefix, intent, postfix, signatures)
 
               if builtin.find_first_set_bit(additional_intents) == -1 {
                 callback(
@@ -404,7 +439,23 @@ pub fn fold_intent_counts(
                   rest_intents,
                 )
               } else {
-                todo
+                let index = builtin.find_first_set_bit(additional_intents)
+                let additional_intents =
+                  builtin.shift_bytearray(additional_intents, -index)
+
+                // Recursive function to get the remaining value leaving and nonces
+                fold_intents(
+                  validate_signatures,
+                  constraint_validator,
+                  rest_intents,
+                  [],
+                  parallel_nonce_list,
+                  nonce_numb,
+                  nonce_numb,
+                  additional_intents,
+                  index,
+                  callback,
+                )
               }
             }
           }
@@ -425,6 +476,7 @@ pub fn fold_intent_counts(
           parallel_nonce_list,
         )
 
+      // TODO compare acc_value to change outputs value + value_leaving from intentions
       // TODO fold outputs
       // Fold other intents
       fold_intent_counts(

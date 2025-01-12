@@ -117,7 +117,7 @@ fn apply_constraint_to_inputs(datum_field, inputs: List<Input>, runnable) {
 
 pub fn handle_out_constraint(
   outputs: List<Output>,
-  con: Data,
+  con: Data<OutputConstraint>,
   temp_val: Data,
 ) -> Data {
   expect OutputConstraint { address, value, datum, ref } = con

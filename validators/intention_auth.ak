@@ -13,8 +13,8 @@ use cardano/transaction.{Output, Redeemer, ScriptPurpose, Transaction}
 use constraint_utils.{handle_inp_constraint,
   handle_out_constraint, select_field}
 use intention_types.{
-  AfterVal, BeforeVal, Constraint, InpConVal, MintConNil, OutConNil, RedeemerVal,
-  RefConVal, SignedIntention, SignedNil,
+  AfterVal, BeforeVal, InpConVal, MintConNil, OutConNil, RedeemerVal, RefConVal,
+  SignedIntention, SignedNil,
 }
 use intention_utils.{fold_intent_counts}
 use macros.{SkipFuncPieces, list_skipper_macro_pieces}
@@ -114,54 +114,70 @@ validator intent_spend {
 
         let handle_constraint =
           fn(constraint: Data, temp_val: Data) {
-            expect constraint: Constraint = constraint
+            let constraint_variant = builtin.unconstr_index(constraint)
+
+            // pub type Constraint {
+            //   OutConNil(Data<OutputConstraint>)
+            //   SignedNil(VerificationKeyHash)
+            //   RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>)
+            //   RefConVal(Data<InputConstraint>)
+            //   InpConVal(Data<InputConstraint>)
+            //   MintConNil(PolicyId, AssetName, Int)
+            //   AfterVal(Int)
+            //   BeforeVal(Int)
+            // }
             // The magic of constraint logic here
-            when constraint is {
-              OutConNil(out_constraints) ->
+            when constraint_variant is {
+              0 -> {
+                expect OutConNil(out_constraints) = constraint
                 handle_out_constraint(
                   constraint_outputs,
                   out_constraints,
                   temp_val,
                 )
-              SignedNil(signer) -> {
+              }
+              1 -> {
+                expect SignedNil(signer) = constraint
                 expect must_have(extra_signatories, signer)
-
                 dataify(None)
               }
-              RedeemerVal(script_purpose, field_selection) -> {
+              2 -> {
+                expect RedeemerVal(script_purpose, field_selection) = constraint
                 let redeemer: Redeemer =
                   constraint_redeemers
                     |> dataify
                     |> builtin.un_map_data
                     |> must_find_key(script_purpose)
-
                 field_selection
                   |> builtin.un_list_data
                   |> select_field(redeemer)
               }
-              RefConVal(ref_constraints) ->
+              3 -> {
+                expect RefConVal(ref_constraints) = constraint
                 handle_inp_constraint(reference_inputs, ref_constraints)
-              InpConVal(inp_constraints) ->
+              }
+              4 -> {
+                expect InpConVal(inp_constraints) = constraint
                 handle_inp_constraint(inputs, inp_constraints)
-              AfterVal(time) -> {
+              }
+              6 -> {
+                expect AfterVal(time) = constraint
                 let lower = expect_item(lower_bound_val)
-
                 expect time < builtin.un_i_data(lower)
-
                 dataify(lower)
               }
-              BeforeVal(time) -> {
+              7 -> {
+                expect BeforeVal(time) = constraint
                 let upper = expect_item(upper_bound_val)
-
                 expect time >= builtin.un_i_data(upper)
-
                 dataify(upper)
               }
-              MintConNil(p, an, amount) -> {
+              5 -> {
+                expect MintConNil(p, an, amount) = constraint
                 expect quantity_of(mint, p, an) == amount
-
                 dataify(None)
               }
+              _ -> fail @"Redeemer index out of range"
             }
           }
 
@@ -171,7 +187,7 @@ validator intent_spend {
             hot_cred: Data,
             vks: Pairs<VerificationKeyHash, VerificationKey>,
           ) {
-            fn(sigs: List<Signature>, message: Hash<Blake2b_256, Data>) {
+            fn(sigs: List<Signature>, message: Hash<Blake2b_256, Data>) -> Bool {
               if hot_cred == dataify([]) {
                 (check_valid_edd_sigs(vks, sigs, message) >= quorum)?
               } else {
