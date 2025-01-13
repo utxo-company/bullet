@@ -142,16 +142,29 @@ validator intent_spend {
                 dataify(None)
               }
               2 -> {
-                expect RedeemerVal(script_purpose, field_selection) = constraint
+                expect RedeemerVal(script_purpose, field_selection, compare_val) =
+                  constraint
+
                 let redeemer: Redeemer =
                   constraint_redeemers
                     |> dataify
                     |> builtin.un_map_data
                     |> must_find_key(script_purpose)
-                field_selection
-                  |> builtin.un_list_data
-                  |> select_field(redeemer)
+
+                let field =
+                  field_selection
+                    |> builtin.un_list_data
+                    |> select_field(redeemer)
+
+                if compare_val == dataify(None) {
+                  field
+                } else {
+                  expect Some(compare): Option<Data> = compare_val
+                  expect field == compare
+                  field
+                }
               }
+
               3 -> {
                 expect RefConVal(ref_constraints) = constraint
                 handle_inp_constraint(reference_inputs, ref_constraints)

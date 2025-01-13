@@ -38,6 +38,7 @@ import {
   hotAuthRewardAddress,
   hotAuthScript,
   intentAuthHash,
+  intentAuthScript,
   oneShotMintPolicy,
   oneShotMintScript,
   proxyAddress,
@@ -68,11 +69,7 @@ async function setupBullet() {
 
   lucid.selectWallet.fromPrivateKey(initAccount.privateKey);
 
-  console.log(lucid.wallet());
-
   console.log("Address is ", initAccount);
-
-  console.log(await lucid.utxosAt(initAccount.address));
 
   console.log("Time for the Global Setup of Bullet.");
 
@@ -107,6 +104,7 @@ async function setupBullet() {
 
   await lucid.awaitTx(globalSetupTxHash);
 
+  // Needed to parameterize the aiken.toml file
   console.log(await lucid.utxosAt(initAccount.address));
 
   const registerTx = await lucid
@@ -183,7 +181,13 @@ async function setupBullet() {
       kind: "inline",
       value: Data.to(sigDatum, SigsDatumType),
     })
+    // deposit to bullet no datum
     .pay.ToContract(bulletAddress, undefined, { lovelace: 50000000n })
+    .pay.ToContract(
+      bulletAddress,
+      { kind: "inline", value: Data.to("Vault", BulletDatumType) },
+      { lovelace: 54000000n },
+    )
     .addSigner(initAccount.address)
     .attach.MintingPolicy(bulletScript)
     .attach.WithdrawalValidator(stakeBulletScript)
@@ -212,11 +216,15 @@ async function hotSpend(lucid: LucidEvolution) {
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 3));
 
-  const refUtxo = await lucid
+  const utxo2 = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 4));
+
+  const refUserState = await lucid
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 0));
 
-  const refUtxos2 = await lucid.utxosAt(proxyAddress);
+  const refGlobalState = await lucid.utxosAt(proxyAddress);
 
   const hotSpendRedeemer: HotAccountSpendType = {
     user_stake: bulletStakeHash,
@@ -225,9 +233,10 @@ async function hotSpend(lucid: LucidEvolution) {
 
   const hotSpendTx = await lucid
     .newTx()
-    .readFrom(refUtxo)
-    .readFrom(refUtxos2)
+    .readFrom(refUserState)
+    .readFrom(refGlobalState)
     .collectFrom(utxo, Data.void())
+    // .collectFrom(utxo2, Data.void())
     .withdraw(proxyRewardAddress, 0n, Data.to("HotCred", ProxyRedeemerType))
     .withdraw(
       hotAuthRewardAddress,
@@ -252,6 +261,69 @@ async function hotSpend(lucid: LucidEvolution) {
 }
 
 async function walletSpend(lucid: LucidEvolution) {
+  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+
+  const utxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 3));
+
+  const utxo2 = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 4));
+
+  const utxoNonce = await lucid.utxosAt(bulletNonceAddress);
+
+  const refUserState = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 0));
+
+  const refGlobalState = await lucid.utxosAt(proxyAddress);
+
+  const walletSpendRedeemer: AccountSpendType = {
+    user_stake: bulletStakeHash,
+    sigs: [],
+    index: 1n,
+  };
+
+  const walletSpendTx = await lucid
+    .newTx()
+    .readFrom(refUserState)
+    .readFrom(refGlobalState)
+    .collectFrom(utxoNonce, Data.void())
+    .collectFrom(utxo, Data.void())
+    .collectFrom(utxo2, Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("VaultSpend", ProxyRedeemerType))
+    .withdraw(
+      walletAuthRewardAddress,
+      0n,
+      Data.to(walletSpendRedeemer, AccountSpendType),
+    )
+    .pay.ToAddress(randomAccount.address, { lovelace: 3500000n })
+    .pay.ToContract(
+      bulletNonceAddress,
+      { kind: "inline", value: Data.to(2n) },
+      {
+        [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n,
+      },
+    )
+    .addSigner(await lucid.wallet().address())
+    .attach.SpendingValidator(bulletScript)
+    .attach.WithdrawalValidator(proxyScript)
+    .attach.WithdrawalValidator(walletAuthScript)
+    .attach.SpendingValidator(bulletNonceScript)
+    .complete();
+
+  const walletSpendTxHash = await walletSpendTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(walletSpendTxHash);
+
+  console.log("Done WalletSpend");
+}
+
+async function coldSpend(lucid: LucidEvolution) {
   const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
 
   const utxo = await lucid

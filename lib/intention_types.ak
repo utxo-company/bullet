@@ -32,7 +32,7 @@ pub type OutputConstraint {
 pub type Constraint {
   OutConNil(Data<OutputConstraint>)
   SignedNil(VerificationKeyHash)
-  RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>)
+  RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>, Data<Option<Data>>)
   RefConVal(Data<InputConstraint>)
   InpConVal(Data<InputConstraint>)
   MintConNil(PolicyId, AssetName, Int)

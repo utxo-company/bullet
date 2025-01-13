@@ -327,7 +327,7 @@ pub fn filter_hot_inputs(
 
       if in_address == address {
         if datum == InlineDatum(Vault) {
-          fail
+          fail @"Can't spend vault inputs"
         } else {
           [output_reference, ..filter_hot_inputs(xs, address)]
         }
@@ -335,7 +335,7 @@ pub fn filter_hot_inputs(
         in_address.payment_credential == address.payment_credential,
         in_address.payment_credential == Script(config.nonce_bullet_hash),
       } {
-        fail
+        fail @"Can't spend other's inputs"
       } else {
         [output_reference, ..filter_hot_inputs(xs, address)]
       }
@@ -359,7 +359,7 @@ pub fn filter_user_inputs(
         in_address.payment_credential == address.payment_credential,
         in_address.payment_credential == nonce_cred,
       } {
-        fail
+        fail @"Can't spend other's inputs"
       } else {
         [output_reference, ..filter_user_inputs(xs, address, nonce_cred)]
       }
@@ -383,7 +383,7 @@ pub fn filter_deleting_inputs(
         in_address.payment_credential == address.payment_credential,
         in_address.payment_credential == nonce_address.payment_credential,
       } {
-        fail
+        fail @"Can't spend other's inputs"
       } else {
         [output_reference, ..filter_deleting_inputs(xs, address, nonce_address)]
       }
