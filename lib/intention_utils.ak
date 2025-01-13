@@ -29,6 +29,206 @@ fn combine_value_leaving(_value_leaving_left, _value_leaving_right) {
   todo
 }
 
+fn value_compare(
+  _input_value: Value,
+  _output_value: Value,
+  _assets_gone: List<(PolicyId, AssetName, Int)>,
+) {
+  todo
+}
+
+pub fn fold_intent_counts(
+  intent_counts: List<Data<ByteArray>>,
+  intentions: List<Data<SignedIntention>>,
+  reference_inputs: List<Input>,
+  inputs: List<Input>,
+  // We offset to outputs related to change and nonces
+  // The earlier outputs would be related to other dApps or intents
+  offset_outputs: List<Output>,
+  withdrawals: Pairs<Credential, Int>,
+  validate_signature: fn(Int, Data, Pairs<VerificationKeyHash, VerificationKey>) ->
+    fn(List<Signature>, ByteArray) -> Bool,
+  constraint_validator: fn(Data<Constraint>, Data) -> Data,
+) -> Bool {
+  when intent_counts is {
+    [] -> intentions == [] && inputs == []
+    [additional_intent_count, ..rest_count] -> {
+      expect [signed_intent, ..rest_intents] = intentions
+
+      expect SignedIntention {
+        prefix,
+        user_stake,
+        intent: Intent { constraints, value_leaving, nonce } as intent,
+        postfix,
+        signatures,
+      } = signed_intent
+
+      let additional_intents = builtin.un_b_data(additional_intent_count)
+
+      let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
+
+      let address_stake_part = Some(Inline(Script(user_stake)))
+
+      let user_address = Address(Script(config.bullet_hash), address_stake_part)
+
+      let control_datum =
+        reference_inputs
+          |> ref_control_datum(expected_nft)
+
+      let nonce_address =
+        Address(Script(config.nonce_bullet_hash), address_stake_part)
+
+      expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
+
+      let quorum = builtin.un_i_data(quorum)
+
+      // TODO: optimize
+      expect hot_cred_hash: BulletCredential = hot_cred_hash
+
+      expect
+        (constraints
+          |> builtin.un_list_data
+          |> fold_constraints(None, constraint_validator))?
+
+      let nonce_numb, parallel_nonce_list <-
+        fn(callback) {
+          when nonce is {
+            Sequential(i) -> callback(i, [])
+            Parallel(p) -> callback(-1, [p])
+          }
+        }
+
+      let
+        first_nonce,
+        last_nonce,
+        parallel_nonce_list,
+        total_value_leaving,
+        remaining_intents,
+      <-
+        fn(callback) {
+          let handle_more_intents =
+            fn(sig_function) {
+              if builtin.find_first_set_bit(additional_intents) == -1 {
+                // Deal with only a single value leaving and nonce
+                callback(
+                  nonce_numb,
+                  nonce_numb,
+                  parallel_nonce_list,
+                  value_leaving,
+                  rest_intents,
+                )
+              } else {
+                let index = builtin.find_first_set_bit(additional_intents)
+                let additional_intents =
+                  builtin.shift_bytearray(additional_intents, -index)
+
+                // Recursive function to get the remaining value leaving and nonces
+                fold_intents(
+                  sig_function,
+                  constraint_validator,
+                  rest_intents,
+                  [],
+                  parallel_nonce_list,
+                  nonce_numb,
+                  nonce_numb,
+                  additional_intents,
+                  index,
+                  callback,
+                )
+              }
+            }
+
+          when hot_cred_hash is {
+            Withdrawal(sc) -> {
+              // So you are probably wondering in what case do you use script withdraw
+              // trick over simply providing a public key?
+              // The answer is as Plutus versions progress and ZK folding schemes improve,
+              // I can see a world where most accounts depend on a validator that runs a single ZK-STARK
+              // or ZK-SNARK to validate each intention was signed by the owner of the respective account.
+              // Basically a user would produce an intention plus a ZK-proof and the sequencer
+              // would fold all the ZK-proofs into a single proof that checks all intentions that were
+              // included in the tx were properly signed. All without revealing the users signing or verifying key.
+              expect must_have_key(withdrawals, sc)?
+
+              handle_more_intents(fn(_a, _b, _c, _d) { True })
+            }
+            Verification(vks) -> {
+              let validate_signature_post =
+                validate_signature(quorum, hot_cred, vks)
+
+              let validate_signatures =
+                fn(
+                  prefix: ByteArray,
+                  intent: Data,
+                  postfix: ByteArray,
+                  signatures: Data,
+                ) {
+                  expect signatures: List<Signature> = signatures
+
+                  let message =
+                    intent
+                      |> serialise()
+                      |> concat(prefix, _)
+                      |> concat(postfix)
+                      |> blake2b_256()
+
+                  validate_signature_post(signatures, message)
+                }
+
+              expect validate_signatures(prefix, intent, postfix, signatures)
+
+              handle_more_intents(validate_signatures)
+            }
+          }
+        }
+
+      let
+        acc_value,
+        remaining_inputs,
+      <-
+        fold_inputs(
+          user_stake,
+          user_address,
+          nonce_address,
+          first_nonce,
+          inputs,
+          [],
+          assets.zero,
+          parallel_nonce_list,
+        )
+
+      let offset_outputs =
+        if last_nonce == -1 {
+          offset_outputs
+        } else {
+          expect [output, ..rest_outputs] = offset_outputs
+          expect
+            validate_out_nonce(user_stake, nonce_address, last_nonce, output)
+          rest_outputs
+        }
+
+      let
+        output_value,
+        remaining_outputs,
+      <- fold_outputs(user_stake, user_address, offset_outputs, assets.zero)
+
+      expect value_compare(output_value, acc_value, total_value_leaving)
+
+      // Fold other intents
+      fold_intent_counts(
+        rest_count,
+        remaining_intents,
+        reference_inputs,
+        remaining_inputs,
+        remaining_outputs,
+        withdrawals,
+        validate_signature,
+        constraint_validator,
+      )
+    }
+  }
+}
+
 fn fold_inputs(
   user_stake: ScriptHash,
   user_address: Address,
@@ -295,200 +495,37 @@ fn fold_intents(
   }
 }
 
-pub fn fold_intent_counts(
-  intent_counts: List<Data<ByteArray>>,
-  intentions: List<Data<SignedIntention>>,
-  reference_inputs: List<Input>,
-  inputs: List<Input>,
-  // We offset to outputs related to change and nonces
-  // The earlier outputs would be related to other dApps or intents
-  offset_outputs: List<Output>,
-  withdrawals: Pairs<Credential, Int>,
-  validate_signature: fn(Int, Data, Pairs<VerificationKeyHash, VerificationKey>) ->
-    fn(List<Signature>, ByteArray) -> Bool,
-  constraint_validator: fn(Data<Constraint>, Data) -> Data,
-) -> Bool {
-  when intent_counts is {
-    [] -> intentions == [] && inputs == []
-    [additional_intent_count, ..rest_count] -> {
-      expect [signed_intent, ..rest_intents] = intentions
+fn validate_out_nonce(
+  user_stake: ScriptHash,
+  nonce_address: Address,
+  last_nonce: Int,
+  output: Output,
+) {
+  let Output { address, value, datum, .. } = output
 
-      expect SignedIntention {
-        prefix,
-        user_stake,
-        intent: Intent { constraints, value_leaving, nonce } as intent,
-        postfix,
-        signatures,
-      } = signed_intent
+  expect [_, ..nft_value] = value |> to_dict |> to_pairs
 
-      let additional_intents = builtin.un_b_data(additional_intent_count)
+  let expected_nft =
+    [
+      Pair(
+        config.bullet_hash,
+        [Pair(bytearray.concat(nonce_prefix, user_stake), 1)],
+      ),
+    ]
 
-      let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
-
-      let address_stake_part = Some(Inline(Script(user_stake)))
-
-      let user_address = Address(Script(config.bullet_hash), address_stake_part)
-
-      let control_datum =
-        reference_inputs
-          |> ref_control_datum(expected_nft)
-
-      let nonce_address =
-        Address(Script(config.nonce_bullet_hash), address_stake_part)
-
-      expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
-
-      let quorum = builtin.un_i_data(quorum)
-
-      // TODO: optimize
-      expect hot_cred_hash: BulletCredential = hot_cred_hash
-
-      expect
-        (constraints
-          |> builtin.un_list_data
-          |> fold_constraints(None, constraint_validator))?
-
-      let nonce_numb, parallel_nonce_list <-
-        fn(callback) {
-          when nonce is {
-            Sequential(i) -> callback(i, [])
-            Parallel(p) -> callback(-1, [p])
-          }
-        }
-
-      let
-        first_nonce,
-        last_nonce,
-        parallel_nonce_list,
-        total_value_leaving,
-        remaining_intents,
-      <-
-        fn(callback) {
-          when hot_cred_hash is {
-            Withdrawal(sc) -> {
-              // So you are probably wondering in what case do you use script withdraw
-              // trick over simply providing a public key?
-              // The answer is as Plutus versions progress and ZK folding schemes improve,
-              // I can see a world where most accounts depend on a validator that runs a single ZK-STARK
-              // or ZK-SNARK to validate each intention was signed by the owner of the respective account.
-              // Basically a user would produce an intention plus a ZK-proof and the sequencer
-              // would fold all the ZK-proofs into a single proof that checks all intentions that were
-              // included in the tx were properly signed. All without revealing the users signing or verifying key.
-              expect must_have_key(withdrawals, sc)?
-
-              if builtin.find_first_set_bit(additional_intents) == -1 {
-                // Deal with only a single value leaving and nonce
-                callback(
-                  nonce_numb,
-                  nonce_numb,
-                  parallel_nonce_list,
-                  value_leaving,
-                  rest_intents,
-                )
-              } else {
-                let index = builtin.find_first_set_bit(additional_intents)
-                let additional_intents =
-                  builtin.shift_bytearray(additional_intents, -index)
-
-                // Recursive function to get the remaining value leaving and nonces
-                fold_intents(
-                  fn(_a, _b, _c, _d) { True },
-                  constraint_validator,
-                  rest_intents,
-                  [],
-                  parallel_nonce_list,
-                  nonce_numb,
-                  nonce_numb,
-                  additional_intents,
-                  index,
-                  callback,
-                )
-              }
-            }
-            Verification(vks) -> {
-              let validate_signature_post =
-                validate_signature(quorum, hot_cred, vks)
-
-              let validate_signatures =
-                fn(
-                  prefix: ByteArray,
-                  intent: Data,
-                  postfix: ByteArray,
-                  signatures: Data,
-                ) {
-                  expect signatures: List<Signature> = signatures
-
-                  let message =
-                    intent
-                      |> serialise()
-                      |> concat(prefix, _)
-                      |> concat(postfix)
-                      |> blake2b_256()
-
-                  validate_signature_post(signatures, message)
-                }
-
-              expect validate_signatures(prefix, intent, postfix, signatures)
-
-              if builtin.find_first_set_bit(additional_intents) == -1 {
-                callback(
-                  nonce_numb,
-                  nonce_numb,
-                  parallel_nonce_list,
-                  value_leaving,
-                  rest_intents,
-                )
-              } else {
-                let index = builtin.find_first_set_bit(additional_intents)
-                let additional_intents =
-                  builtin.shift_bytearray(additional_intents, -index)
-
-                // Recursive function to get the remaining value leaving and nonces
-                fold_intents(
-                  validate_signatures,
-                  constraint_validator,
-                  rest_intents,
-                  [],
-                  parallel_nonce_list,
-                  nonce_numb,
-                  nonce_numb,
-                  additional_intents,
-                  index,
-                  callback,
-                )
-              }
-            }
-          }
-        }
-
-      let
-        acc_value,
-        remaining_inputs,
-      <-
-        fold_inputs(
-          user_stake,
-          user_address,
-          nonce_address,
-          first_nonce,
-          inputs,
-          [],
-          assets.zero,
-          parallel_nonce_list,
-        )
-
-      // TODO compare acc_value to change outputs value + value_leaving from intentions
-      // TODO fold outputs
-      // Fold other intents
-      fold_intent_counts(
-        rest_count,
-        remaining_intents,
-        reference_inputs,
-        remaining_inputs,
-        offset_outputs,
-        withdrawals,
-        validate_signature,
-        constraint_validator,
-      )
-    }
+  and {
+    dataify(expected_nft) == dataify(nft_value),
+    datum == InlineDatum(last_nonce),
+    nonce_address == address,
   }
+}
+
+fn fold_outputs(
+  _user_stake: ScriptHash,
+  _user_address: Address,
+  _outputs: List<Output>,
+  _acc_value: Value,
+  _callback,
+) {
+  todo
 }
