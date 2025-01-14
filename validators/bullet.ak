@@ -19,7 +19,7 @@ use types.{
 }
 use utils.{
   check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
-  must_find_item, must_find_key, must_have, must_have_key,
+  must_find_item, must_find_key, must_have_key,
 }
 
 // UserAccount =
@@ -261,7 +261,7 @@ validator bullet {
             quantity == -1 && nonce_quantity == -1,
             and {
               (quantity == 1 && nonce_quantity == 1)?,
-              must_have(redeemers, Pair(Withdraw(Script(name)), dataify(Setup))),
+              must_find_key(redeemers, Withdraw(Script(name))) == dataify(Setup),
             },
           },
         }

@@ -41,7 +41,7 @@ validator hot_spend {
 
         expect Control { quorum, hot_cred, hot_cred_hash, .. } =
           reference_inputs
-            |> ref_control_datum(expected_nft)
+            |> ref_control_datum(expected_address, expected_nft)
 
         expect quorum: Int = quorum
 

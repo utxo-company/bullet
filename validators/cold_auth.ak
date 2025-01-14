@@ -34,15 +34,15 @@ validator cold_spend {
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-        expect Control { cold_cred, cold_cred_hash, .. } =
-          reference_inputs
-            |> ref_control_datum(expected_nft)
-
-        expect cold_cred_hash: BulletCredential = cold_cred_hash
-
         let stake_key = Some(Inline(Script(user_stake)))
 
         let expected_address = Address(Script(config.bullet_hash), stake_key)
+
+        expect Control { cold_cred, cold_cred_hash, .. } =
+          reference_inputs
+            |> ref_control_datum(expected_address, expected_nft)
+
+        expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let expected_nonce_address =
           Address(Script(config.nonce_bullet_hash), stake_key)

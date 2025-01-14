@@ -35,16 +35,16 @@ validator wallet_spend {
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-        expect Control { hot_cred, hot_cred_hash, quorum, .. } =
-          reference_inputs
-            |> ref_control_datum(expected_nft)
-
-        expect hot_cred_hash: BulletCredential = hot_cred_hash
-        expect quorum: Int = quorum
-
         let stake_key = Some(Inline(Script(user_stake)))
 
         let expected_address = Address(Script(config.bullet_hash), stake_key)
+
+        expect Control { hot_cred, hot_cred_hash, quorum, .. } =
+          reference_inputs
+            |> ref_control_datum(expected_address, expected_nft)
+
+        expect hot_cred_hash: BulletCredential = hot_cred_hash
+        expect quorum: Int = quorum
 
         let expected_nonce_address =
           Address(Script(config.nonce_bullet_hash), stake_key)

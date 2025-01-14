@@ -73,7 +73,7 @@ pub fn fold_intent_counts(
 
       let control_datum =
         reference_inputs
-          |> ref_control_datum(expected_nft)
+          |> ref_control_datum(user_address, expected_nft)
 
       let nonce_address =
         Address(Script(config.nonce_bullet_hash), address_stake_part)

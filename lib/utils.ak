@@ -116,19 +116,47 @@ pub fn at(list: List<a>, index: Int) -> a {
   }
 }
 
-pub fn ref_control_datum(ref_inputs: List<Input>, ref_value: Data) -> Data {
+pub fn ref_global_control(ref_inputs: List<Input>, ref_value: Data) -> Data {
   expect [input, ..rest] = ref_inputs
 
   let Input { output, .. } = input
 
+  let Output { value, datum, .. } = output
+
   // This won't error since every input has to at least have ada
-  expect [_, ..nft_value] = output.value |> to_dict |> to_pairs
+  expect [_, ..nft_value] = value |> to_dict |> to_pairs
 
   if dataify(nft_value) == ref_value {
-    expect InlineDatum(control_datum) = output.datum
+    expect InlineDatum(control_datum) = datum
     control_datum
   } else {
-    ref_control_datum(rest, ref_value)
+    ref_global_control(rest, ref_value)
+  }
+}
+
+pub fn ref_control_datum(
+  ref_inputs: List<Input>,
+  ref_address: Address,
+  ref_value: Data,
+) -> Data {
+  expect [input, ..rest] = ref_inputs
+
+  let Input { output, .. } = input
+
+  if output.address == ref_address {
+    let Output { value, datum, .. } = output
+
+    // This won't error since every input has to at least have ada
+    expect [_, ..nft_value] = value |> to_dict |> to_pairs
+
+    if dataify(nft_value) == ref_value {
+      expect InlineDatum(control_datum) = datum
+      control_datum
+    } else {
+      ref_control_datum(rest, ref_address, ref_value)
+    }
+  } else {
+    ref_control_datum(rest, ref_address, ref_value)
   }
 }
 

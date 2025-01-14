@@ -62,7 +62,7 @@ validator cold_control {
         expect Control { cold_cred, cold_cred_hash, .. } =
           inputs
             |> pop_to_index(control_index)
-            |> ref_control_datum(expected_nft)
+            |> ref_control_datum(expected_address, expected_nft)
 
         expect cold_cred: List<Vk> = cold_cred
         expect cold_cred_hash: BulletCredential = cold_cred_hash

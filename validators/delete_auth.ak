@@ -60,7 +60,7 @@ validator delete_account {
         expect Control { cold_cred, cold_cred_hash, .. } =
           inputs
             |> pop_to_index(control_index |> builtin.un_i_data)
-            |> ref_control_datum(expected_nft)
+            |> ref_control_datum(expected_address, expected_nft)
 
         expect [Pair(name, quantity), ..] =
           mint

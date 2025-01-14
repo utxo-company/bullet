@@ -314,8 +314,8 @@ const sc = {
       Transaction {
         ..transaction.placeholder,
         withdrawals: [
-          Pair(Script(#"aabbbccc"), 0),
           Pair(Script(config.proxy_hash), 1000000),
+          Pair(Script(#"aabbbccc"), 0),
           Pair(VerificationKey(#"aabbbcccddeeff"), 0),
         ],
       }

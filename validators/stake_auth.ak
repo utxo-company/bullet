@@ -1,6 +1,6 @@
 use aiken/builtin
 use aiken/crypto.{blake2b_256}
-use cardano/address.{Credential, Script}
+use cardano/address.{Address, Credential, Inline, Script}
 use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
@@ -31,13 +31,16 @@ validator wallet_stake {
           ..
         } = tx
 
-        expect HotAccountStake(Script(user_hash), sigs) = redeemer
+        expect HotAccountStake(Script(user_hash) as user_cred, sigs) = redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_hash, 1)])]
 
+        let expected_address =
+          Address(Script(config.bullet_hash), Some(Inline(user_cred)))
+
         expect Control { quorum, hot_cred, hot_cred_hash, .. } =
           reference_inputs
-            |> ref_control_datum(expected_nft)
+            |> ref_control_datum(expected_address, expected_nft)
 
         expect quorum: Int = quorum
         expect hot_cred_hash: BulletCredential = hot_cred_hash
