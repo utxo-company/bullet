@@ -114,7 +114,7 @@ The value that can be spent from the users account when fulfilling the intent.
 
 And finally the nonce to ensure each intent can only be used once.
 
-TODO.
+[See here for more details on Intentions](./IntentionDetails.md)
 
 
 ## Resources
