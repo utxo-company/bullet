@@ -52,7 +52,7 @@ pub type Constraint {
 
 pub type IntentNonce {
   Sequential(Int)
-  Parallel(OutputReference)
+  Parallel(Data<OutputReference>)
 }
 
 pub type Intent {

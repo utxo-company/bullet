@@ -50,7 +50,10 @@ pub fn check_val(vals: List<Data>, value: Value) -> Bool {
   }
 }
 
-pub fn handle_inp_constraint(inputs: List<Input>, con: Data) -> Data {
+pub fn handle_inp_constraint(
+  inputs: List<Input>,
+  con: Data<InputConstraint>,
+) -> Data {
   expect InputConstraint { address, value, datum_field, in_ref } = con
 
   let runnable_val =

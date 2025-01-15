@@ -255,9 +255,7 @@ pub fn fold_intent_counts(
       // need to match the input
       let (lace, val) = value_leaving
 
-      // fourth part prepare total_value_leaving user account
-      let value_leaving =
-        fn(a) { a(lace, builtin.un_map_data(val)) }
+      let val = builtin.un_map_data(val)
 
       // fifth part: deal with remaining intents
       // Fold over one or more remaining intentions
@@ -268,8 +266,8 @@ pub fn fold_intent_counts(
       let
         first_nonce: Int,
         last_nonce: Int,
-        parallel_nonce_list: List<OutputReference>,
-        total_value_leaving: LaceAndValue<Bool>,
+        parallel_nonce_list: List<Data<OutputReference>>,
+        add_value_leaving: LaceAndValue<Bool>,
         remaining_intents: List<Data<SignedIntention>>,
       <-
         fn(callback) {
@@ -323,7 +321,7 @@ pub fn fold_intent_counts(
               nonce_numb,
               nonce_numb,
               parallel_nonce_list,
-              value_leaving,
+              fn(a) { a(0, []) },
               rest_intents,
             )
           } else {
@@ -346,6 +344,11 @@ pub fn fold_intent_counts(
             )
           }
         }
+
+      let add_lace, add_val <- add_value_leaving
+
+      let total_value_leaving =
+        fn(a) { a(lace + add_lace, fast_combine_natural_values(add_val, val)) }
 
       // sixth part: fold over inputs. Validate the inputs that belong to user
       // and return the accumulated value for the user
@@ -419,7 +422,7 @@ fn fold_inputs(
   inputs: List<Input>,
   remaining_inputs: List<Input>,
   acc_value: LaceAndValue<Bool>,
-  parallel_nonce_list: List<OutputReference>,
+  parallel_nonce_list: List<Data<OutputReference>>,
   callback: fn(LaceAndValue<Bool>, List<Input>) -> Bool,
 ) {
   when inputs is {
@@ -450,7 +453,7 @@ fn fold_inputs(
 
           let nonce_list =
             if InlineDatum(ParallelNonce) == datum {
-              list.delete(parallel_nonce_list, output_reference)
+              list.delete(parallel_nonce_list, dataify(output_reference))
             } else {
               parallel_nonce_list
             }
@@ -542,7 +545,7 @@ fn fold_intents(
   constraint_validator: fn(Data<Constraint>, Data) -> Data,
   intents: List<Data<SignedIntention>>,
   remaining_intents: List<Data<SignedIntention>>,
-  parallel_nonce_list: List<OutputReference>,
+  parallel_nonce_list: List<Data<OutputReference>>,
   first_nonce: Int,
   last_nonce: Int,
   additional_intents: ByteArray,
@@ -550,7 +553,7 @@ fn fold_intents(
   callback: fn(
     Int,
     Int,
-    List<OutputReference>,
+    List<Data<OutputReference>>,
     LaceAndValue<Bool>,
     List<Data<SignedIntention>>,
   ) ->
