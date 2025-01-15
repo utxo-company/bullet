@@ -118,7 +118,7 @@ validator cold_control {
             }
           }
 
-        let address_check =
+        let address_nonce_check =
           if migration {
             let expected_nonce_nft =
               [Pair(config.nonce_bullet_hash, [Pair(user_stake, 1)])]
@@ -144,7 +144,7 @@ validator cold_control {
         and {
           check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs, False)?,
           dataify(nft_value) == dataify(expected_nft),
-          address_check,
+          address_nonce_check,
           out_quorum > 0,
           check_keys_and_hashes(
             out_hot_cred_hash,
