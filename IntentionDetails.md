@@ -73,6 +73,38 @@ type Intent {
   value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
   nonce: IntentNonce
 }
+
+pub type IntentNonce {
+  Sequential(Int)
+  Parallel(OutputReference)
+}
+
+pub type Constraint {
+  OutConNil(Data<OutputConstraint>)
+  SignedNil(VerificationKeyHash)
+  RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>, Data<Option<Data>>)
+  RefConVal(Data<InputConstraint>)
+  InpConVal(Data<InputConstraint>)
+  MintConNil(PolicyId, AssetName, Int)
+  AfterVal(Int)
+  BeforeVal(Int)
+}
+
+pub type InputConstraint {
+  address: Data<Options<Address, Credential>>,
+  value: Data<List<(PolicyId, AssetName, Int)>>,
+  datum_field: Data<List<Int>>,
+  in_ref: Data<Option<OutputReference>>,
+}
+
+pub type OutputConstraint {
+  address: Data<Options<Address, Credential>>,
+  value: Data<
+    Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
+  >,
+  datum: Data<Options<Data, (ByteArray, ByteArray)>>,
+  ref: Data<Option<ScriptHash>>,
+}
 ```
 
 2. Key Helper Functions:
