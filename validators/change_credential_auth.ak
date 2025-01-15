@@ -13,8 +13,8 @@ use types.{
 }
 use utils.{
   check_all_tx_observed, check_all_tx_observed_and_hashes,
-  check_all_valid_vk_sigs, dataify, filter_user_inputs, must_have_key,
-  ref_control_datum,
+  check_all_valid_vk_sigs, dataify, must_have_key, ref_control_datum,
+  resolve_user_tx,
 }
 
 fn pop_to_index(list: List<a>, index: Int) -> List<a> {
@@ -50,13 +50,26 @@ validator cold_control {
           migration,
         } = redeemer
 
+        let user_stake_cred = Some(Inline(Script(user_stake)))
+
         let expected_address =
-          Address(Script(config.bullet_hash), Some(Inline(Script(user_stake))))
+          Address(Script(config.bullet_hash), user_stake_cred)
 
-        let expected_nonce_cred = Script(config.nonce_bullet_hash)
+        let expected_nonce_address =
+          Address(Script(config.nonce_bullet_hash), user_stake_cred)
 
-        let inputs_spent =
-          filter_user_inputs(inputs, expected_address, expected_nonce_cred)
+        let
+          inputs_spent,
+          nonce_state,
+        <-
+          resolve_user_tx(
+            user_stake,
+            inputs,
+            expected_address,
+            expected_nonce_address,
+            [],
+            -1,
+          )
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -73,8 +86,10 @@ validator cold_control {
             |> builtin.serialise_data()
             |> blake2b_256()
 
-        expect [Output { address, value, datum: InlineDatum(datum), .. }, ..] =
-          outputs
+        expect [
+          Output { address, value, datum: InlineDatum(datum), .. },
+          ..nonce_output
+        ] = outputs
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -105,9 +120,25 @@ validator cold_control {
 
         let address_check =
           if migration {
-            Some(Inline(Script(user_stake))) == address.stake_credential
+            let expected_nonce_nft =
+              [Pair(config.nonce_bullet_hash, [Pair(user_stake, 1)])]
+            expect [
+              Output { address: nonce_address, value: nonce_value, .. },
+              ..
+            ] = nonce_output
+
+            expect [_, ..nonce_value] = nonce_value |> to_dict |> to_pairs
+
+            and {
+              user_stake_cred == address.stake_credential,
+              nonce_address.stake_credential == user_stake_cred,
+              dataify(nonce_value) == dataify(expected_nonce_nft),
+            }
           } else {
-            address == expected_address
+            and {
+              address == expected_address,
+              nonce_state == -1,
+            }
           }
 
         and {

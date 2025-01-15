@@ -5,7 +5,7 @@ use aiken/crypto.{
   verify_ecdsa_signature, verify_ed25519_signature, verify_schnorr_signature,
 }
 use aiken/primitive/bytearray.{is_empty}
-use cardano/address.{Address, Credential, Script}
+use cardano/address.{Address, Script}
 use cardano/assets.{AssetName, PolicyId, Value, to_dict}
 use cardano/transaction.{InlineDatum, Input, Output, OutputReference}
 use config
@@ -367,31 +367,6 @@ pub fn filter_hot_inputs(
       } else {
         // Allows for an external input to pay the fee
         filter_hot_inputs(xs, address)
-      }
-    }
-  }
-}
-
-pub fn filter_user_inputs(
-  list: List<Input>,
-  address: Address,
-  nonce_cred: Credential,
-) -> List<OutputReference> {
-  when list is {
-    [] -> []
-    [input, ..xs] -> {
-      let Input(output_reference, Output { address: in_address, .. }) = input
-
-      if in_address == address {
-        [output_reference, ..filter_user_inputs(xs, address, nonce_cred)]
-      } else if or {
-        in_address.payment_credential == address.payment_credential,
-        in_address.payment_credential == nonce_cred,
-      } {
-        fail @"Can't spend other's inputs"
-      } else {
-        // Allows for an external input to pay the fee
-        filter_user_inputs(xs, address, nonce_cred)
       }
     }
   }
