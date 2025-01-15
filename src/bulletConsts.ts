@@ -183,3 +183,8 @@ export const walletAuthRewardAddress = validatorToRewardAddress(
   "Preview",
   walletAuthScript,
 );
+
+export const coldAuthRewardAddress = validatorToRewardAddress(
+  "Preview",
+  coldAuthScript,
+);

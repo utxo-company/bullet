@@ -33,6 +33,8 @@ import {
   bulletStakeHash,
   changeAuthHash,
   coldAuthHash,
+  coldAuthRewardAddress,
+  coldAuthScript,
   deleteHash,
   hotAuthHash,
   hotAuthRewardAddress,
@@ -69,8 +71,6 @@ async function setupBullet() {
 
   lucid.selectWallet.fromPrivateKey(initAccount.privateKey);
 
-  console.log("Address is ", initAccount);
-
   console.log("Time for the Global Setup of Bullet.");
 
   const oneShotDatum: ProxyStateType = {
@@ -105,7 +105,7 @@ async function setupBullet() {
   await lucid.awaitTx(globalSetupTxHash);
 
   // Needed to parameterize the aiken.toml file
-  console.log(await lucid.utxosAt(initAccount.address));
+  console.log("Parameterize aiken.toml file with: ", globalSetupTxHash);
 
   const registerTx = await lucid
     .newTx()
@@ -114,6 +114,7 @@ async function setupBullet() {
     .register.Stake(proxyRewardAddress)
     .register.Stake(hotAuthRewardAddress)
     .register.Stake(walletAuthRewardAddress)
+    .register.Stake(coldAuthRewardAddress)
     .complete();
 
   const registerTxHash = await registerTx.sign
@@ -200,10 +201,6 @@ async function setupBullet() {
 
   await lucid.awaitTx(newUserTxHash);
 
-  console.log(await lucid.utxosAt(bulletAddress));
-
-  console.log(await lucid.utxosAt(proxyAddress));
-
   console.log("Done Setup");
 
   return lucid;
@@ -248,7 +245,7 @@ async function hotSpend(lucid: LucidEvolution) {
     .attach.SpendingValidator(bulletScript)
     .attach.WithdrawalValidator(proxyScript)
     .attach.WithdrawalValidator(hotAuthScript)
-    .complete();
+    .complete({ changeAddress: bulletAddress });
 
   const hotSpendTxHash = await hotSpendTx.sign
     .withWallet()
@@ -311,7 +308,7 @@ async function walletSpend(lucid: LucidEvolution) {
     .attach.WithdrawalValidator(proxyScript)
     .attach.WithdrawalValidator(walletAuthScript)
     .attach.SpendingValidator(bulletNonceScript)
-    .complete();
+    .complete({ changeAddress: bulletAddress });
 
   const walletSpendTxHash = await walletSpendTx.sign
     .withWallet()
@@ -330,15 +327,19 @@ async function coldSpend(lucid: LucidEvolution) {
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 3));
 
-  const utxo2 = await lucid.utxosAt(bulletNonceAddress);
+  const utxo2 = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 4));
 
-  const refUtxo = await lucid
+  const utxoNonce = await lucid.utxosAt(bulletNonceAddress);
+
+  const refUserState = await lucid
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 0));
 
-  const refUtxos2 = await lucid.utxosAt(proxyAddress);
+  const refGlobalState = await lucid.utxosAt(proxyAddress);
 
-  const walletSpendRedeemer: AccountSpendType = {
+  const coldSpendRedeemer: AccountSpendType = {
     user_stake: bulletStakeHash,
     sigs: [],
     index: 1n,
@@ -346,17 +347,18 @@ async function coldSpend(lucid: LucidEvolution) {
 
   const walletSpendTx = await lucid
     .newTx()
-    .readFrom(refUtxo)
-    .readFrom(refUtxos2)
-    .collectFrom(utxo2, Data.void())
+    .readFrom(refUserState)
+    .readFrom(refGlobalState)
     .collectFrom(utxo, Data.void())
-    .withdraw(proxyRewardAddress, 0n, Data.to("VaultSpend", ProxyRedeemerType))
+    .collectFrom(utxo2, Data.void())
+    .collectFrom(utxoNonce, Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("ColdCred", ProxyRedeemerType))
     .withdraw(
-      walletAuthRewardAddress,
+      coldAuthRewardAddress,
       0n,
-      Data.to(walletSpendRedeemer, AccountSpendType),
+      Data.to(coldSpendRedeemer, AccountSpendType),
     )
-    .pay.ToAddress(randomAccount.address, { lovelace: 3500000n })
+    .pay.ToAddress(randomAccount.address, { lovelace: 3800000n })
     .pay.ToContract(
       bulletNonceAddress,
       { kind: "inline", value: Data.to(2n) },
@@ -367,9 +369,9 @@ async function coldSpend(lucid: LucidEvolution) {
     .addSigner(await lucid.wallet().address())
     .attach.SpendingValidator(bulletScript)
     .attach.WithdrawalValidator(proxyScript)
-    .attach.WithdrawalValidator(walletAuthScript)
+    .attach.WithdrawalValidator(coldAuthScript)
     .attach.SpendingValidator(bulletNonceScript)
-    .complete();
+    .complete({ changeAddress: bulletAddress });
 
   const walletSpendTxHash = await walletSpendTx.sign
     .withWallet()
@@ -378,7 +380,7 @@ async function coldSpend(lucid: LucidEvolution) {
 
   await lucid.awaitTx(walletSpendTxHash);
 
-  console.log("Done WalletSpend");
+  console.log("Done ColdSpend");
 }
 
 setupBullet()
@@ -387,4 +389,8 @@ setupBullet()
 
 setupBullet()
   .then((l) => walletSpend(l))
+  .catch(console.error);
+
+setupBullet()
+  .then((l) => coldSpend(l))
   .catch(console.error);

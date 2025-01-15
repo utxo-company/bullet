@@ -87,4 +87,5 @@ pub type ChangeCredentials {
   cold_sigs: List<Signature>,
   new_hot_sigs: List<Signature>,
   new_cold_sigs: List<Signature>,
+  migration: Bool,
 }

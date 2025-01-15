@@ -1,6 +1,6 @@
 use aiken/crypto.{ScriptHash, Signature, VerificationKeyHash}
 use cardano/address.{Address, Credential}
-use cardano/assets.{AssetName, PolicyId}
+use cardano/assets.{AssetName, Lovelace, PolicyId}
 use cardano/transaction.{OutputReference, ScriptPurpose}
 
 pub type Options<a, b> {
@@ -8,6 +8,16 @@ pub type Options<a, b> {
   SomeTwo(b)
   Nada
 }
+
+pub type Natural =
+  Int
+
+pub type OutputAssetMap =
+  Pairs<AssetName, Natural>
+
+// The amazing type to handle intention values a little faster
+pub type LaceAndValue<a> =
+  fn(fn(Lovelace, Pairs<Data<PolicyId>, Data<OutputAssetMap>>) -> a) -> a
 
 pub type InputConstraint {
   address: Data<Options<Address, Credential>>,
@@ -47,7 +57,7 @@ pub type IntentNonce {
 
 pub type Intent {
   constraints: Data<List<Constraint>>,
-  value_leaving: List<(PolicyId, AssetName, Int)>,
+  value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
   nonce: IntentNonce,
 }
 

@@ -365,7 +365,8 @@ pub fn filter_hot_inputs(
       } {
         fail @"Can't spend other's inputs"
       } else {
-        [output_reference, ..filter_hot_inputs(xs, address)]
+        // Allows for an external input to pay the fee
+        filter_hot_inputs(xs, address)
       }
     }
   }
@@ -389,7 +390,8 @@ pub fn filter_user_inputs(
       } {
         fail @"Can't spend other's inputs"
       } else {
-        [output_reference, ..filter_user_inputs(xs, address, nonce_cred)]
+        // Allows for an external input to pay the fee
+        filter_user_inputs(xs, address, nonce_cred)
       }
     }
   }
@@ -413,7 +415,8 @@ pub fn filter_deleting_inputs(
       } {
         fail @"Can't spend other's inputs"
       } else {
-        [output_reference, ..filter_deleting_inputs(xs, address, nonce_address)]
+        // Allows for an external input to pay the fee
+        filter_deleting_inputs(xs, address, nonce_address)
       }
     }
   }
@@ -482,7 +485,7 @@ pub fn resolve_user_tx(
           xs,
           address,
           nonce_address,
-          [output_reference, ..filtered_inputs],
+          filtered_inputs,
           nonce_present,
           callback,
         )

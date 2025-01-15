@@ -197,7 +197,7 @@ validator intent_spend {
         let validate_signature =
           fn(
             quorum: Int,
-            hot_cred: Data,
+            hot_cred: Data<List<Vk>>,
             vks: Pairs<VerificationKeyHash, VerificationKey>,
           ) {
             fn(sigs: List<Signature>, message: Hash<Blake2b_256, Data>) -> Bool {

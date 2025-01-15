@@ -47,6 +47,7 @@ validator cold_control {
           cold_sigs,
           new_hot_sigs,
           new_cold_sigs,
+          migration,
         } = redeemer
 
         let expected_address =
@@ -102,10 +103,17 @@ validator cold_control {
             }
           }
 
+        let address_check =
+          if migration {
+            Some(Inline(Script(user_stake))) == address.stake_credential
+          } else {
+            address == expected_address
+          }
+
         and {
           check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs, False)?,
           dataify(nft_value) == dataify(expected_nft),
-          address == expected_address,
+          address_check,
           out_quorum > 0,
           check_keys_and_hashes(
             out_hot_cred_hash,
