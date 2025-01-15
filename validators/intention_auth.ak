@@ -24,13 +24,7 @@ use utils.{
   must_have, quantity_of,
 }
 
-type Red {
-  intentions: Data<List<SignedIntention>>,
-  intent_user_counts: Data<List<ByteArray>>,
-  change_output_offset: Int,
-  constraint_output_offset: Int,
-  constraint_redeemer_offset: Int,
-}
+
 
 const skip_outputs_8: SkipFuncPieces<Output, List<Output>> =
   list_skipper_macro_pieces(8)
@@ -69,6 +63,14 @@ fn skip_redeemers_fn(
 fn expect_item(constr: Data) {
   expect [item, ..] = constr |> builtin.unconstr_fields
   item
+}
+
+type Red {
+  intentions: Data<List<SignedIntention>>,
+  intent_user_counts: Data<List<ByteArray>>,
+  change_output_offset: Int,
+  constraint_output_offset: Int,
+  constraint_redeemer_offset: Int,
 }
 
 /// Action to hot spend via intent
