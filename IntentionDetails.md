@@ -483,6 +483,7 @@ fn handle_constraint(constraint: Data<Constraint>, temp_val: Data) -> Data
 - Enables chained validation patterns
 
 3. When temp_val Gets Set:
+
 a) From Input Constraints:
 ```aiken
 InpConVal(inp_constraints) -> {
