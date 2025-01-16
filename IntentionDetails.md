@@ -1,186 +1,171 @@
 # Intentions
 
 ## Overview
-The intention auth validator is a critical component in an account abstraction system that validates user intentions (signed transaction instructions) with the following key purposes:
+The Intention Validator is used for processing multiple user-signed transactions securely through account abstraction. It provides:
 
-1. Validates multiple aggregated user intentions in a single transaction
-2. Manages user contention through nonce tracking
-3. Supports both parallel and sequential intention execution
-4. Enforces constraint validation and signature verification
+- High-throughput transaction processing through intention aggregation
+- Transaction conflict prevention with nonce management
+- Flexible execution models supporting both sequential and parallel flows
+- Robust security via constraint validation and signature verification
 
-Key Components:
-- Intention validation logic (intent_spend validator)
-- Constraint handling system
-- Signature verification system
-- Value tracking and comparison utilities
-- Nonce management for sequential/parallel execution
+## Core Components
+- Validation Engine
+- Constraint System
+- Signature Verification
+- Value Management
+- Nonce Control
 
-The validator fits into the account abstraction system by providing a secure way to validate that transactions match user-signed intentions while supporting aggregation for improved scalability.
+## Implementation Details
+### ValidationFlow
+The validation process follows these sequential steps:
 
-
-## ValidationFlow
-The core validation flow consists of these sequential steps:
-
-1. Redeemer Parsing & Setup
-- Extracts intentions list, user counts, and offsets from redeemer
-- Prepares constraint validation context
-- Sets up signature verification context
+1. Redeemer Analysis
+   - Extracts intention list
+   - Processes user counts
+   - Establishes validation context
+   - Initializes signature verification
 
 2. Per-User Intention Processing
-For each user's set of intentions:
-a) Validates signatures on intentions
-b) Verifies sequential nonce progression if used
-c) Tracks parallel nonces if used
-d) Accumulates value movements
-e) Validates all specified constraints
+   - Signature validation
+   - Nonce verification
+   - Value tracking
+   - Constraint validation
 
-3. Constraint Validation
-For each constraint type:
-- OutputConstraint: Validates output structure and values
-- SignatureConstraint: Verifies required signatures present
-- RedeemerConstraint: Validates redeemer field values
-- ReferenceConstraint: Checks reference input conditions
-- InputConstraint: Validates input conditions
-- MintConstraint: Verifies minting policies
-- TimeConstraint: Validates transaction time bounds
+3. Constraint System Validation
+   - Output structure verification
+   - Signature requirements
+   - Redeemer validation
+   - Reference input verification
+   - Input validation
+   - Minting policy enforcement
+   - Time bounds checking
 
-4. Value Balancing
-- Tracks input values consumed
-- Validates output values produced
-- Ensures proper value movement per intention
+4. Value Management
+   - Input value tracking
+   - Output value verification
+   - Movement validation
 
-5. Final Validation
-- Verifies all intentions processed
-- Confirms all constraints satisfied
-- Checks nonce progression valid
-- Validates overall transaction structure
+5. Final Verification
+   - Intention completion check
+   - Constraint satisfaction
+   - Nonce progression
+   - Transaction structure
 
 
-## Intent Components
-1. Core Data Structures:
+## Data Structures
+### Signed Intentions
 ```aiken
-// The first type you encounter is the outer type contains the user stake key hash, intent, bytearray wrapping, and signatures
-// A user would sign the concatenation of prefix, intention, and postfix with their keys and add the signatures to the field
-
-// The prefix and postfix are for the wrapper bytes that tend to surround a message being signed by the wallet,
-// perhaps in the future this won't be needed.
+/// Represents a user-signed intention with authentication data
 type SignedIntention {
-  user_stake: ScriptHash,
-  intent: Intent,
-  prefix: ByteArray,
-  postfix: ByteArray,
-  signatures: Data<List<Signature>>
+    // User stake key hash for identification
+    user_stake: ScriptHash,
+
+    // Core intention data
+    intent: Intent,
+
+    // Signature wrapper data
+    prefix: ByteArray,
+    postfix: ByteArray,
+
+    // Authentication signatures
+    signatures: Data<List<Signature>>
 }
 
-// Now peeling back a layer, an intent looks like this:
-
-// Here we have three important fields.
-// The constraints that are checked at runtime for the intention to be valid (in addition to the signature).
-// The value that can be spent from the users account when fulfilling the intent.
-// And finally the nonce to ensure each intent can only be used once.
+/// Core intention structure
 type Intent {
-  constraints: Data<List<Constraint>>,
-  value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
-  nonce: IntentNonce
+    // Runtime validation constraints
+    constraints: Data<List<Constraint>>,
+
+    // Value movement specification
+    value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
+
+    // Uniqueness enforcer
+    nonce: IntentNonce
 }
 
-// Used to ensure onchain uniqueness for each intention
-// Thus each signed intention can only be used once onchain
+/// Nonce types for intention uniqueness
 pub type IntentNonce {
-  Sequential(Int)
-  Parallel(OutputReference)
+    Sequential(Int)
+    Parallel(OutputReference)
 }
+```
 
+### Constraint System
+```aiken
+/// Defines validation requirements
 pub type Constraint {
-  OutConNil(Data<OutputConstraint>)
-  SignedNil(VerificationKeyHash)
-  RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>, Data<Option<Data>>)
-  RefConVal(Data<InputConstraint>)
-  InpConVal(Data<InputConstraint>)
-  MintConNil(PolicyId, AssetName, Int)
-  AfterVal(Int)
-  BeforeVal(Int)
+    OutConNil(Data<OutputConstraint>)
+    SignedNil(VerificationKeyHash)
+    RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>, Data<Option<Data>>)
+    RefConVal(Data<InputConstraint>)
+    InpConVal(Data<InputConstraint>)
+    MintConNil(PolicyId, AssetName, Int)
+    AfterVal(Int)
+    BeforeVal(Int)
 }
 
+/// Input validation requirements
 pub type InputConstraint {
-  address: Data<Options<Address, Credential>>,
-  value: Data<List<(PolicyId, AssetName, Int)>>,
-  datum_field: Data<List<Int>>,
-  in_ref: Data<Option<OutputReference>>,
+    address: Data<Options<Address, Credential>>,
+    value: Data<List<(PolicyId, AssetName, Int)>>,
+    datum_field: Data<List<Int>>,
+    in_ref: Data<Option<OutputReference>>,
 }
 
+/// Output validation requirements
 pub type OutputConstraint {
-  address: Data<Options<Address, Credential>>,
-  value: Data<
-    Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
-  >,
-  datum: Data<Options<Data, (ByteArray, ByteArray)>>,
-  ref: Data<Option<ScriptHash>>,
+    address: Data<Options<Address, Credential>>,
+    value: Data<
+        Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
+    >,
+    datum: Data<Options<Data, (ByteArray, ByteArray)>>,
+    ref: Data<Option<ScriptHash>>
 }
 ```
 
-2. Key Helper Functions:
+## Usage Examples
 
-Value Handling:
-- fast_combine_output_value: Optimized value combination
-- fast_combine_natural_values: Natural number value addition
-- value_compare: Value comparison with accumulation
-
-Constraint Processing:
-- handle_inp_constraint: Input constraint validation
-- handle_out_constraint: Output constraint validation
-- fold_constraints: Multiple constraint validation
-
-Signature Verification:
-- check_quorum_valid_sigs: Quorum signature validation
-- check_valid_edd_sigs: Ed25519 signature checking
-
-3. Component Interactions:
-- Redeemer parsing feeds into intention processing
-- Intention processing triggers constraint validation
-- Constraint validation affects value tracking
-- Value tracking feeds back to intention validation
-- Nonce management coordinates across intentions
-
-
-### Examples
-
-1. Sequential Intention Flow:
+### Sequential Execution
 ```aiken
-// User signs intention with nonce N
+/// Example: Sequential intention chain
+// First intention
 SignedIntention {
-  nonce: Sequential(n),
-  constraints: [...],
-  value_leaving: (100_000_000, tokens)
+    nonce: Sequential(n),      // Current sequence number
+    constraints: [             // Transaction constraints
+        OutConNil(payment),    // Payment requirements
+        SignedNil(signer)      // Required signatures
+    ],
+    value_leaving: (
+        100_000_000,          // ADA amount
+        tokens                // Token bundle
+    )
 }
 
-// Next intention must use nonce N+1
+// Next intention
 SignedIntention {
-  nonce: Sequential(n+1),
-  constraints: [...],
-  value_leaving: (50_000_000, tokens)
+    nonce: Sequential(n+1),    // Next sequence number
+    constraints: [
+        OutConNil(payment),
+        SignedNil(signer)
+    ],
+    value_leaving: (50_000_000, tokens)
 }
 ```
 
-2. Parallel Intention:
+### Parallel Processing
 ```aiken
+/// Example: Parallel intention execution
 SignedIntention {
-  nonce: Parallel(specific_utxo),
-  constraints: [...],
-  value_leaving: (value_details)
+    nonce: Parallel(specific_utxo),  // UTXO-based nonce
+    constraints: [
+        InpConVal(input_requirement),
+        MintConNil(policy_id, asset_name, 1),
+        BeforeVal(deadline)
+    ],
+    value_leaving: (value_details)
 }
 ```
-
-3. Constraint Example:
-```aiken
-constraints: [
-  OutConNil(output_requirements),
-  SignedNil(required_signer),
-  RedeemerVal(script_purpose, field_index, expected_value)
-]
-```
-
-4. Multi-Constraint Example
+### Combined
 ```aiken
 // User 1 Sequential Intentions
 SignedIntention {
@@ -209,7 +194,7 @@ SignedIntention {
 
 ## InputConstraints
 
-1. Input Constraint Structure
+### Input Constraint Structure
 ```aiken
 type InputConstraint {
   address: Data<Options<Address, Credential>>,  // Target address or credential
@@ -219,7 +204,7 @@ type InputConstraint {
 }
 ```
 
-2. Input Constraint Types
+### Input Constraint Types
 
 a) Address Validation:
 ```aiken
@@ -273,7 +258,7 @@ Datum {
 // Puts resulting value into temp_val
 ```
 
-3. Input Constraint Examples:
+### Input Constraint Examples:
 
 ```aiken
 // Example 1: Specific UTXO with included value
@@ -320,7 +305,7 @@ RefConVal(InputConstraint {
 
 ## OutputConstraints
 
-1. Output Constraint Structure
+### Output Constraint Structure
 ```aiken
 type OutputConstraint {
   address: Data<Options<Address, Credential>>, // Target address/credential
@@ -335,7 +320,7 @@ type OutputConstraint {
 }
 ```
 
-2. Output Constraint Types
+### Output Constraint Types
 
 a) Address Requirements:
 ```aiken
@@ -380,7 +365,7 @@ datum: SomeTwo((prefix_bytes, postfix_bytes))
 datum: Nada
 ```
 
-3. Output Constraint Examples:
+### Output Constraint Examples:
 
 ```aiken
 // Example 1: Exact payment with datum
@@ -413,7 +398,7 @@ OutConNil(OutputConstraint {
 })
 ```
 
-4. Constraint Validation Process:
+### Constraint Validation Process:
 
 ```aiken
 fn handle_out_constraint(
@@ -445,7 +430,7 @@ fn handle_out_constraint(
 }
 ```
 
-5. Common Validation Patterns:
+### Common Validation Patterns:
 
 ```aiken
 // Pattern 1: NFT Transfer
@@ -480,21 +465,21 @@ OutConNil(OutputConstraint {
 
 ## TempValueSystem
 
-1. Overview of temp_val
+### Overview
 ```aiken
 // temp_val is a Data value that gets passed through constraint validation
 // and can be used to carry intermediate results between constraints
 fn handle_constraint(constraint: Data<Constraint>, temp_val: Data) -> Data
 ```
 
-2. Key Characteristics:
+### Key Characteristics
 - Acts as a state carrier between constraint validations
 - Initially starts as `None`
 - Can be modified by certain constraints
 - Used by subsequent constraints for value comparisons
 - Enables chained validation patterns
 
-3. When temp_val Gets Set:
+### When temp_val Gets Set
 
 a) From Input Constraints:
 ```aiken
@@ -539,7 +524,7 @@ BeforeVal(time) -> {
 }
 ```
 
-3. Common Input Constraint temp_val Patterns:
+### Common Input Constraint temp_val Patterns:
 
 a) Reference Input to Output Flow:
 ```aiken
@@ -577,7 +562,7 @@ b) Input to Output Value Transfer:
 ]
 ```
 
-4. Other Example Patterns:
+### Other Example Patterns:
 
 a) Redeemer-Driven Payment:
 ```aiken
@@ -616,7 +601,7 @@ b) Input-Datum-Driven Protocol:
 ]
 ```
 
-6. Important Considerations:
+### Important Considerations:
 
 Correct Usage:
 ```aiken
