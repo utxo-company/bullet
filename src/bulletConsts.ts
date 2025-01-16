@@ -188,3 +188,8 @@ export const coldAuthRewardAddress = validatorToRewardAddress(
   "Preview",
   coldAuthScript,
 );
+
+export const changeAuthRewardAddress = validatorToRewardAddress(
+  "Preview",
+  changeAuthScript,
+);

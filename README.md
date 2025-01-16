@@ -80,41 +80,7 @@ As a side note this allows offchain indexers to track how much value Bullet user
 
 
 ### Intentions
-
-The first type you encounter is the outer type contains the user stake key hash, intent, bytearray wrapping, and signatures:
-```aiken
-pub type SignedIntention {
-  user_stake: ScriptHash,
-  intent: Intent,
-  prefix: ByteArray,
-  postfix: ByteArray,
-  signatures: Data<List<Signature>>,
-}
-```
-
-A user would sign the concatenation of prefix, intention, and postfix with their keys and add the signatures to the field
-
-The prefix and postfix are for the wrapper bytes that tend to surround a message being signed by the wallet,
-perhaps in the future this won't be needed.
-
-Now peeling back a layer, an intent looks like this:
-
-```aiken
-pub type Intent {
-  constraints: List<Constraint>
-  value_leaving: List<(PolicyId, AssetName, Int)>,
-  nonce: IntentNonce,
-}
-```
-Here we have three important fields.
-
-The constraints that are checked at runtime for the intention to be valid (in addition to the signature).
-
-The value that can be spent from the users account when fulfilling the intent.
-
-And finally the nonce to ensure each intent can only be used once.
-
-[See here for more details on Intentions](./IntentionDetails.md)
+[See here for details on Intentions](./IntentionDetails.md)
 
 
 ## Resources

@@ -141,3 +141,25 @@ export type AccountSpendType = Data.Static<typeof AccountSpendSchema>;
 
 export const AccountSpendType =
   AccountSpendSchema as unknown as AccountSpendType;
+
+// pub type ChangeCredentials {
+//   control_index: Int,
+//   user_stake: ScriptHash,
+//   cold_sigs: List<Signature>,
+//   new_hot_sigs: List<Signature>,
+//   new_cold_sigs: List<Signature>,
+//   migration: Bool,
+// }
+
+export const ChangeCredSchema = Data.Object({
+  control_index: Data.Integer({ minimum: 0 }),
+  user_stake: Data.Bytes({ minLength: 28, maxLength: 28 }),
+  cold_sigs: Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+  new_hot_sigs: Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+  new_cold_sigs: Data.Array(Data.Bytes({ minLength: 64, maxLength: 64 })),
+  migration: Data.Boolean(),
+});
+
+export type ChangeCredType = Data.Static<typeof ChangeCredSchema>;
+
+export const ChangeCredType = ChangeCredSchema as unknown as ChangeCredType;

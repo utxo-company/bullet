@@ -57,9 +57,13 @@ For each constraint type:
 
 
 ## Intent Components
-
 1. Core Data Structures:
 ```aiken
+// The first type you encounter is the outer type contains the user stake key hash, intent, bytearray wrapping, and signatures
+// A user would sign the concatenation of prefix, intention, and postfix with their keys and add the signatures to the field
+
+// The prefix and postfix are for the wrapper bytes that tend to surround a message being signed by the wallet,
+// perhaps in the future this won't be needed.
 type SignedIntention {
   user_stake: ScriptHash,
   intent: Intent,
@@ -68,12 +72,20 @@ type SignedIntention {
   signatures: Data<List<Signature>>
 }
 
+// Now peeling back a layer, an intent looks like this:
+
+// Here we have three important fields.
+// The constraints that are checked at runtime for the intention to be valid (in addition to the signature).
+// The value that can be spent from the users account when fulfilling the intent.
+// And finally the nonce to ensure each intent can only be used once.
 type Intent {
   constraints: Data<List<Constraint>>,
   value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
   nonce: IntentNonce
 }
 
+// Used to ensure onchain uniqueness for each intention
+// Thus each signed intention can only be used once onchain
 pub type IntentNonce {
   Sequential(Int)
   Parallel(OutputReference)
@@ -117,7 +129,7 @@ Value Handling:
 Constraint Processing:
 - handle_inp_constraint: Input constraint validation
 - handle_out_constraint: Output constraint validation
-- fold_constraints: Constraint accumulation
+- fold_constraints: Multiple constraint validation
 
 Signature Verification:
 - check_quorum_valid_sigs: Quorum signature validation
@@ -164,7 +176,7 @@ SignedIntention {
 constraints: [
   OutConNil(output_requirements),
   SignedNil(required_signer),
-  RedeemerVal(script_purpose, fields, expected_value)
+  RedeemerVal(script_purpose, field_index, expected_value)
 ]
 ```
 
