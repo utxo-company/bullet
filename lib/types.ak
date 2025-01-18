@@ -20,29 +20,36 @@ pub type ProxyAction {
   Delete
 }
 
-pub type BulletCredential {
-  Verification(Pairs<VerificationKeyHash, VerificationKey>)
-  Withdrawal(Credential)
+pub type HotBulletCredential {
+  Verification {
+    edd25519_keys: Data<Pairs<VerificationKeyHash, VerificationKey>>,
+    other_keys: Data<List<Vk>>,
+    hot_quorum: Data<Int>,
+    wallet_quorum: Data<Int>,
+  }
+  Withdrawal(Data<Credential>)
+}
+
+pub type ColdBulletCredential {
+  ColdVerification(
+    Data<Pairs<VerificationKeyHash, VerificationKey>>,
+    Data<List<Vk>>,
+  )
+  ColdWithdrawal(Data<Credential>)
 }
 
 // Optimization:
 // Possibly switch from many Vk to single one
 // since Schnorr supports k of m signatures anyway
 pub type AccountState {
-  quorum: Int,
-  hot_cred: List<Vk>,
-  hot_cred_hash: BulletCredential,
-  cold_cred: List<Vk>,
-  cold_cred_hash: BulletCredential,
+  hot_cred: HotBulletCredential,
+  cold_cred: ColdBulletCredential,
 }
 
 pub type UtxoStates {
   Control {
-    quorum: Data<Int>,
-    hot_cred: Data<List<Vk>>,
-    hot_cred_hash: Data<BulletCredential>,
-    cold_cred: Data<List<Vk>>,
-    cold_cred_hash: Data<BulletCredential>,
+    hot_cred: Data<HotBulletCredential>,
+    cold_cred: Data<ColdBulletCredential>,
   }
   ParallelNonce
   Vault
@@ -61,23 +68,23 @@ pub type ProxyState {
 }
 
 pub type Vk {
-  Secp(VerificationKey)
   Schnorr(VerificationKey)
+  Secp(VerificationKey)
 }
 
 pub type HotAccountSpend {
   user_stake: ScriptHash,
-  sigs: List<Signature>,
+  sigs: Data<List<Signature>>,
 }
 
 pub type HotAccountStake {
   user_stake: Credential,
-  sigs: List<Signature>,
+  sigs: Data<List<Signature>>,
 }
 
 pub type AccountSpend {
   user_stake: ScriptHash,
-  sigs: List<Signature>,
+  sigs: Data<List<Signature>>,
   index: Data<Int>,
 }
 

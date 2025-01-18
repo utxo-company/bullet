@@ -24,8 +24,6 @@ use utils.{
   must_have, quantity_of,
 }
 
-
-
 const skip_outputs_8: SkipFuncPieces<Output, List<Output>> =
   list_skipper_macro_pieces(8)
 
@@ -34,8 +32,6 @@ const skip_redeemers_10: SkipFuncPieces<
     Pairs<ScriptPurpose, Redeemer>,
   > =
   list_skipper_macro_pieces(10)
-
-const skip_redeemers = skip_redeemers_fn
 
 fn skip_outputs(outputs: List<Output>, index: Int) -> List<Output> {
   let iterate_func, skip_func, skip_count <- skip_outputs_8
@@ -47,14 +43,14 @@ fn skip_outputs(outputs: List<Output>, index: Int) -> List<Output> {
   }
 }
 
-fn skip_redeemers_fn(
+fn skip_redeemers(
   redeemers: Pairs<ScriptPurpose, Redeemer>,
   index: Int,
 ) -> Pairs<ScriptPurpose, Redeemer> {
   let iterate_func, skip_func, skip_count <- skip_redeemers_10
 
   if index >= skip_count {
-    redeemers |> skip_func |> skip_redeemers_fn(index - skip_count)
+    redeemers |> skip_func |> skip_redeemers(index - skip_count)
   } else {
     iterate_func(redeemers, index)
   }
@@ -100,6 +96,8 @@ validator intent_spend {
           proposal_procedures: _,
           ..
         } = tx
+
+        let withdrawals = builtin.un_map_data(withdrawals)
 
         expect Red {
           intentions,
@@ -199,16 +197,22 @@ validator intent_spend {
         let validate_signature =
           fn(
             quorum: Int,
-            hot_cred: Data<List<Vk>>,
-            vks: Pairs<VerificationKeyHash, VerificationKey>,
+            other_keys: Data<List<Vk>>,
+            ed25519_keys: Pairs<
+              Data<VerificationKeyHash>,
+              Data<VerificationKey>,
+            >,
           ) {
-            fn(sigs: List<Signature>, message: Hash<Blake2b_256, Data>) -> Bool {
-              if hot_cred == dataify([]) {
-                (check_valid_edd_sigs(vks, sigs, message) >= quorum)?
+            fn(sigs: List<Data<Signature>>, message: Hash<Blake2b_256, Data>) -> Bool {
+              if other_keys == dataify([]) {
+                (check_valid_edd_sigs(ed25519_keys, sigs, message) >= quorum)?
               } else {
-                expect hot_cred: List<Vk> = hot_cred
-
-                (check_quorum_valid_sigs(vks, hot_cred, sigs, message) >= quorum)?
+                (check_quorum_valid_sigs(
+                  ed25519_keys,
+                  other_keys |> builtin.un_list_data,
+                  sigs,
+                  message,
+                ) >= quorum)?
               }
             }
           }

@@ -116,7 +116,10 @@ pub fn at(list: List<a>, index: Int) -> a {
   }
 }
 
-pub fn ref_global_control(ref_inputs: List<Input>, ref_value: Data) -> Data {
+pub fn ref_control_datum_by_nft(
+  ref_inputs: List<Input>,
+  ref_value: Data,
+) -> Data {
   expect [input, ..rest] = ref_inputs
 
   let Input { output, .. } = input
@@ -130,7 +133,7 @@ pub fn ref_global_control(ref_inputs: List<Input>, ref_value: Data) -> Data {
     expect InlineDatum(control_datum) = datum
     control_datum
   } else {
-    ref_global_control(rest, ref_value)
+    ref_control_datum_by_nft(rest, ref_value)
   }
 }
 
@@ -173,33 +176,32 @@ pub fn scriptify_bytes(bytes: Hash<Blake2b_224, Data>) {
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_quorum_valid_sigs(
-  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
-  vks: List<Vk>,
-  signatures: List<Signature>,
+  vkhs: Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  vks: List<Data<Vk>>,
+  signatures: List<Data<Signature>>,
   message: MessageHash,
 ) -> Int {
   when vks is {
     [] -> check_valid_edd_sigs(vkhs, signatures, message)
     [vk, ..rest] -> {
       expect [sig, ..others] = signatures
+      let sig = sig |> builtin.un_b_data
 
       if is_empty(sig) {
         check_quorum_valid_sigs(vkhs, rest, others, message)
       } else {
-        when vk is {
-          // ranked by probable usage
-          Schnorr(vk) ->
-            if vk |> verify_schnorr_signature(message, sig) {
-              1 + check_quorum_valid_sigs(vkhs, rest, others, message)
-            } else {
-              fail
-            }
-          Secp(vk) ->
-            if vk |> verify_ecdsa_signature(message, sig) {
-              1 + check_quorum_valid_sigs(vkhs, rest, others, message)
-            } else {
-              fail
-            }
+        if builtin.unconstr_index(vk) == 0 {
+          expect Schnorr(vk) = vk
+
+          expect verify_schnorr_signature(vk, message, sig)
+
+          1 + check_quorum_valid_sigs(vkhs, rest, others, message)
+        } else {
+          expect Secp(vk) = vk
+
+          expect verify_ecdsa_signature(vk, message, sig)
+
+          1 + check_quorum_valid_sigs(vkhs, rest, others, message)
         }
       }
     }
@@ -209,8 +211,8 @@ pub fn check_quorum_valid_sigs(
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_valid_vk_sigs(
-  vks: List<Vk>,
-  signatures: List<Signature>,
+  vks: List<Data<Vk>>,
+  signatures: List<Data<Signature>>,
   message: MessageHash,
 ) -> Int {
   when vks is {
@@ -218,23 +220,23 @@ pub fn check_valid_vk_sigs(
     [vk, ..rest] -> {
       expect [sig, ..others] = signatures
 
+      let sig = sig |> builtin.un_b_data
+
       if is_empty(sig) {
         check_valid_vk_sigs(rest, others, message)
       } else {
-        when vk is {
-          // ranked by probable usage
-          Schnorr(vk) ->
-            if vk |> verify_schnorr_signature(message, sig) {
-              1 + check_valid_vk_sigs(rest, others, message)
-            } else {
-              fail
-            }
-          Secp(vk) ->
-            if vk |> verify_ecdsa_signature(message, sig) {
-              1 + check_valid_vk_sigs(rest, others, message)
-            } else {
-              fail
-            }
+        if builtin.unconstr_index(vk) == 0 {
+          expect Schnorr(vk) = vk
+
+          expect verify_schnorr_signature(vk, message, sig)
+
+          1 + check_valid_vk_sigs(rest, others, message)
+        } else {
+          expect Secp(vk) = vk
+
+          expect verify_ecdsa_signature(vk, message, sig)
+
+          1 + check_valid_vk_sigs(rest, others, message)
         }
       }
     }
@@ -244,8 +246,8 @@ pub fn check_valid_vk_sigs(
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_valid_edd_sigs(
-  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
-  signatures: List<Signature>,
+  vkhs: Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  signatures: List<Data<Signature>>,
   message: MessageHash,
 ) -> Int {
   when vkhs is {
@@ -253,10 +255,12 @@ pub fn check_valid_edd_sigs(
     [Pair(_vkh, vk), ..rest] -> {
       expect [sig, ..others] = signatures
 
-      if is_empty(sig) {
+      if is_empty(sig |> builtin.un_b_data) {
         check_valid_edd_sigs(rest, others, message)
       } else {
-        if vk |> verify_ed25519_signature(message, sig) {
+        if vk
+          |> builtin.un_b_data
+          |> verify_ed25519_signature(message, sig |> builtin.un_b_data) {
           1 + check_valid_edd_sigs(rest, others, message)
         } else {
           fail
@@ -267,8 +271,8 @@ pub fn check_valid_edd_sigs(
 }
 
 pub fn check_tx_observed(
-  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
-  signatories: List<VerificationKeyHash>,
+  vkhs: Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  signatories: List<Data<VerificationKeyHash>>,
 ) -> Int {
   when vkhs is {
     [] -> 0
@@ -284,8 +288,8 @@ pub fn check_tx_observed(
 /// Returns count of non-empty signatures that are valid
 /// Fails if any non-empty signature is invalid
 pub fn check_all_valid_vk_sigs(
-  vks: List<Vk>,
-  signatures: List<Signature>,
+  vks: List<Data<Vk>>,
+  signatures: List<Data<Signature>>,
   message: MessageHash,
 ) -> Bool {
   when vks is {
@@ -293,28 +297,30 @@ pub fn check_all_valid_vk_sigs(
     [vk, ..rest] -> {
       expect [sig, ..others] = signatures
 
-      when vk is {
-        // ranked by probable usage
-        Schnorr(vk) ->
-          (
-            vk
-              |> verify_schnorr_signature(message, sig)
-          ) && check_all_valid_vk_sigs(rest, others, message)
-        Secp(vk) ->
-          (vk
-            |> verify_ecdsa_signature(message, sig))? && check_all_valid_vk_sigs(
-            rest,
-            others,
-            message,
-          )
+      if builtin.unconstr_index(vk) == 0 {
+        expect Schnorr(vk) = vk
+        (vk
+          |> verify_schnorr_signature(message, sig |> builtin.un_b_data))? && check_all_valid_vk_sigs(
+          rest,
+          others,
+          message,
+        )
+      } else {
+        expect Secp(vk) = vk
+        (vk
+          |> verify_ecdsa_signature(message, sig |> builtin.un_b_data))? && check_all_valid_vk_sigs(
+          rest,
+          others,
+          message,
+        )
       }
     }
   }
 }
 
 pub fn check_all_tx_observed(
-  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
-  signatories: List<VerificationKeyHash>,
+  vkhs: Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  signatories: List<Data<VerificationKeyHash>>,
 ) -> Bool {
   when vkhs is {
     [] -> True
@@ -327,13 +333,16 @@ pub fn check_all_tx_observed(
 
 /// Same as above, but also check hashes match vk
 pub fn check_all_tx_observed_and_hashes(
-  vkhs: Pairs<VerificationKeyHash, VerificationKey>,
-  signatories: List<VerificationKeyHash>,
+  vkhs: Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  signatories: List<Data<VerificationKeyHash>>,
 ) -> Bool {
   when vkhs is {
     [] -> True
     [Pair(vkh, vk), ..rest] -> {
-      expect builtin.blake2b_224(vk) == vkh
+      expect
+        ( vk |> builtin.un_b_data() |> builtin.blake2b_224() ) == builtin.un_b_data(
+          vkh,
+        )
 
       signatories
         |> must_take_until(vkh)

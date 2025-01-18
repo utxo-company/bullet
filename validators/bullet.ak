@@ -15,7 +15,8 @@ use cardano/transaction.{
 use config
 use prefix.{nonce_prefix}
 use types.{
-  AccountState, Nonce, Setup, StakeActions, UtxoStates, Verification, Withdrawal,
+  AccountState, ColdVerification, ColdWithdrawal, Nonce, Setup, StakeActions,
+  UtxoStates, Verification, Withdrawal,
 }
 use utils.{
   check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
@@ -102,20 +103,26 @@ validator stake_bullet {
         }
       }
 
-    let Transaction {
-      inputs,
-      outputs,
-      withdrawals,
-      extra_signatories,
-      redeemers,
-      ..
-    } = tx
+    or {
+      return_early,
+      {
+        let Transaction {
+          inputs,
+          outputs,
+          withdrawals,
+          extra_signatories,
+          redeemers,
+          ..
+        } = tx
 
-    if redeemer == dataify(Setup) {
-      or {
-        return_early,
-        // Check various things if the redeemer is Setup
-        {
+        let extra_signatories = extra_signatories |> builtin.un_list_data
+
+        let withdrawals =
+          withdrawals
+            |> builtin.un_map_data
+
+        if redeemer == dataify(Setup) {
+          // Check various things if the redeemer is Setup
           let one_shot_ref =
             config.new_user_tx_hash
               |> OutputReference(config.new_user_output_index)
@@ -159,30 +166,62 @@ validator stake_bullet {
               ),
             ]
 
-          expect (hot_sigs, cold_sigs): (List<Signature>, List<Signature>) =
-            sig_datum
+          expect (hot_sigs, cold_sigs): (
+            List<Data<Signature>>,
+            List<Data<Signature>>,
+          ) = sig_datum
 
-          expect AccountState {
-            quorum,
-            hot_cred,
-            hot_cred_hash,
-            cold_cred,
-            cold_cred_hash,
-          } = datum
+          expect AccountState { hot_cred, cold_cred } = datum
 
           expect [_, ..rest] = value |> to_dict |> to_pairs
 
           expect [_, ..rest_nonce] = nonce_value |> to_dict |> to_pairs
 
-          let check_keys_and_hashes =
-            fn(bullet_credential, creds, sigs) {
-              when bullet_credential is {
-                Verification(vks) -> and {
-                    check_all_valid_vk_sigs(creds, sigs, one_shot_message)?,
-                    check_all_tx_observed_and_hashes(vks, extra_signatories)?,
-                  }
-                Withdrawal(sc) -> must_have_key(withdrawals, sc)?
+          let check_hot =
+            if builtin.unconstr_index(hot_cred) == 0 {
+              expect Verification {
+                edd25519_keys,
+                other_keys,
+                hot_quorum,
+                wallet_quorum,
+              } = hot_cred
+
+              and {
+                check_all_valid_vk_sigs(
+                  other_keys |> builtin.un_list_data,
+                  hot_sigs,
+                  one_shot_message,
+                )?,
+                check_all_tx_observed_and_hashes(
+                  edd25519_keys |> builtin.un_map_data,
+                  extra_signatories,
+                )?,
+                (builtin.un_i_data(hot_quorum) >= 1)?,
+                (builtin.un_i_data(wallet_quorum) >= 1)?,
               }
+            } else {
+              expect Withdrawal(sc) = hot_cred
+              must_have_key(withdrawals, sc)?
+            }
+
+          let check_cold =
+            if builtin.unconstr_index(cold_cred) == 0 {
+              expect ColdVerification(edd25519_keys, other_keys) = cold_cred
+
+              and {
+                check_all_valid_vk_sigs(
+                  other_keys |> builtin.un_list_data,
+                  cold_sigs,
+                  one_shot_message,
+                )?,
+                check_all_tx_observed_and_hashes(
+                  edd25519_keys |> builtin.un_map_data,
+                  extra_signatories |> dataify |> builtin.un_list_data,
+                )?,
+              }
+            } else {
+              expect ColdWithdrawal(sc) = cold_cred
+              must_have_key(withdrawals, sc)?
             }
 
           and {
@@ -194,14 +233,13 @@ validator stake_bullet {
             (address == expected_address)?,
             (nonce_addr == expected_nonce_address)?,
             (dataify(1) == nonce_datum)?,
-            (quorum > 0)?,
-            check_keys_and_hashes(hot_cred_hash, hot_cred, hot_sigs)?,
-            check_keys_and_hashes(cold_cred_hash, cold_cred, cold_sigs)?,
+            check_hot,
+            check_cold,
           }
-        },
-      }
-    } else {
-      check_for_stake_proxy(redeemers, cred)
+        } else {
+          check_for_stake_proxy(redeemers, cred)
+        }
+      },
     }
   }
 }

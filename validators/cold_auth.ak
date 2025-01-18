@@ -5,8 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend,
-  BulletCredential, Control, Verification, Vk, Withdrawal}
+use types.{AccountSpend, ColdVerification, ColdWithdrawal, Control}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key,
   ref_control_datum, resolve_user_tx,
@@ -30,6 +29,12 @@ validator cold_spend {
           ..
         } = tx
 
+        let extra_signatories = extra_signatories |> builtin.un_list_data
+
+        let withdrawals =
+          withdrawals
+            |> builtin.un_map_data
+
         expect AccountSpend(user_stake, sigs, nonce_output) = redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
@@ -38,11 +43,9 @@ validator cold_spend {
 
         let expected_address = Address(Script(config.bullet_hash), stake_key)
 
-        expect Control { cold_cred, cold_cred_hash, .. } =
+        expect Control { cold_cred, .. } =
           reference_inputs
             |> ref_control_datum(expected_address, expected_nft)
-
-        expect cold_cred_hash: BulletCredential = cold_cred_hash
 
         let expected_nonce_address =
           Address(Script(config.nonce_bullet_hash), stake_key)
@@ -61,25 +64,32 @@ validator cold_spend {
           )
 
         let cred_check =
-          when cold_cred_hash is {
-            Verification(vks) ->
-              if cold_cred == dataify([]) {
-                check_all_tx_observed(vks, extra_signatories)?
-              } else {
-                expect cold_cred: List<Vk> = cold_cred
+          if builtin.unconstr_index(cold_cred) == 0 {
+            expect ColdVerification(edd25519_keys, other_keys) = cold_cred
 
-                let message =
-                  (inputs_spent, outputs, fee)
-                    |> builtin.serialise_data()
-                    |> blake2b_256()
+            if other_keys == dataify([]) {
+              check_all_tx_observed(
+                edd25519_keys |> builtin.un_map_data,
+                extra_signatories,
+              )?
+            } else {
+              let message =
+                (inputs_spent, outputs, fee)
+                  |> builtin.serialise_data()
+                  |> blake2b_256()
 
-                check_all_tx_observed(vks, extra_signatories)? && check_all_valid_vk_sigs(
-                  cold_cred,
-                  sigs,
-                  message,
-                )?
-              }
-            Withdrawal(sc) -> must_have_key(withdrawals, sc)?
+              check_all_tx_observed(
+                edd25519_keys |> builtin.un_map_data,
+                extra_signatories,
+              )? && check_all_valid_vk_sigs(
+                other_keys |> builtin.un_list_data,
+                sigs |> builtin.un_list_data,
+                message,
+              )?
+            }
+          } else {
+            expect ColdWithdrawal(sc) = cold_cred
+            must_have_key(withdrawals, sc)?
           }
 
         and {

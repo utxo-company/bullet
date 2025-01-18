@@ -15,9 +15,7 @@ use intention_types.{
   SignedIntention,
 }
 use prefix.{nonce_prefix}
-use types.{
-  BulletCredential, Control, ParallelNonce, Vault, Verification, Vk, Withdrawal,
-}
+use types.{Control, ParallelNonce, Vault, Verification, Vk, Withdrawal}
 use utils.{dataify, must_have_key, ref_control_datum}
 
 /// Optimized for expecting the name values of policy and assets in one output
@@ -187,13 +185,13 @@ pub fn fold_intent_counts(
   // We offset to outputs related to change and nonces
   // The earlier outputs would be related to other dApps or intents
   offset_outputs: List<Output>,
-  withdrawals: Pairs<Credential, Int>,
+  withdrawals: Pairs<Data<Credential>, Data<Int>>,
   validate_signature: fn(
     Int,
     Data<List<Vk>>,
-    Pairs<VerificationKeyHash, VerificationKey>,
+    Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
   ) ->
-    fn(List<Signature>, ByteArray) -> Bool,
+    fn(List<Data<Signature>>, ByteArray) -> Bool,
   // Constraint and temp value that can be used with certain constraints
   constraint_validator: fn(Data<Constraint>, Data) -> Data,
 ) -> Bool {
@@ -238,11 +236,9 @@ pub fn fold_intent_counts(
         reference_inputs
           |> ref_control_datum(user_address, expected_nft)
 
-      expect Control { quorum, hot_cred, hot_cred_hash, .. } = control_datum
+      expect Control { hot_cred, .. } = control_datum
 
       // TODO: optimize
-      expect hot_cred_hash: BulletCredential = hot_cred_hash
-
       // third part: validate user constraints for the popped off intention
       expect
         (constraints
@@ -272,47 +268,53 @@ pub fn fold_intent_counts(
       <-
         fn(callback) {
           let sig_function =
-            when hot_cred_hash is {
-              Withdrawal(sc) -> {
-                // So you are probably wondering in what case do you use script withdraw
-                // trick over simply providing a public key?
-                // The answer is as Plutus versions progress and ZK folding schemes improve,
-                // I can see a world where most accounts depend on a validator that runs a single ZK-STARK
-                // or ZK-SNARK to validate each intention was signed by the owner of the respective account.
-                // Basically a user would produce an intention plus a ZK-proof and the sequencer
-                // would fold all the ZK-proofs into a single proof that checks all intentions that were
-                // included in the tx were properly signed. All without revealing the users signing or verifying key.
-                expect must_have_key(withdrawals, sc)?
+            if builtin.unconstr_index(hot_cred) == 0 {
+              expect Verification { edd25519_keys, other_keys, hot_quorum, .. } =
+                hot_cred
 
-                fn(_a, _b, _c, _d) { True }
-              }
-              Verification(vks) -> {
-                let validate_signature_post =
-                  validate_signature(builtin.un_i_data(quorum), hot_cred, vks)
+              let validate_signature_post =
+                validate_signature(
+                  builtin.un_i_data(hot_quorum),
+                  other_keys |> builtin.un_list_data,
+                  edd25519_keys |> builtin.un_map_data,
+                )
 
-                let validate_signatures =
-                  fn(
-                    prefix: ByteArray,
-                    intent: Data,
-                    postfix: ByteArray,
-                    signatures: Data,
-                  ) {
-                    expect signatures: List<Signature> = signatures
+              let validate_signatures =
+                fn(
+                  prefix: ByteArray,
+                  intent: Data,
+                  postfix: ByteArray,
+                  signatures: Data,
+                ) {
+                  let message =
+                    intent
+                      |> serialise()
+                      |> concat(prefix, _)
+                      |> concat(postfix)
+                      |> blake2b_256()
 
-                    let message =
-                      intent
-                        |> serialise()
-                        |> concat(prefix, _)
-                        |> concat(postfix)
-                        |> blake2b_256()
+                  validate_signature_post(
+                    signatures |> builtin.un_list_data,
+                    message,
+                  )
+                }
 
-                    validate_signature_post(signatures, message)
-                  }
+              expect validate_signatures(prefix, intent, postfix, signatures)
 
-                expect validate_signatures(prefix, intent, postfix, signatures)
+              validate_signatures
+            } else {
+              expect Withdrawal(sc) = hot_cred
+              // So you are probably wondering in what case do you use script withdraw
+              // trick over simply providing a public key?
+              // The answer is as Plutus versions progress and ZK folding schemes improve,
+              // I can see a world where most accounts depend on a validator that runs a single ZK-STARK
+              // or ZK-SNARK to validate each intention was signed by the owner of the respective account.
+              // Basically a user would produce an intention plus a ZK-proof and the sequencer
+              // would fold all the ZK-proofs into a single proof that checks all intentions that were
+              // included in the tx were properly signed. All without revealing the users signing or verifying key.
+              expect must_have_key(withdrawals, sc)?
 
-                validate_signatures
-              }
+              fn(_a, _b, _c, _d) { True }
             }
 
           // Deal with only a single value leaving and nonce

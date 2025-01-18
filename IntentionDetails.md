@@ -228,7 +228,7 @@ value: [
   // Require exactly 100 TokenA from PolicyA
   (policyA, tokenA, 100),
 
-  // Require minimum 50 TokenB from PolicyB
+  // Require exactly 50 TokenB from PolicyB
   (policyB, tokenB, 50),
 
   // Check for ADA amount
@@ -244,6 +244,7 @@ c) Datum Field Access:
 // Access nested datum fields using indices
 datum_field: [0, 2, 1] // Goes 3 levels deep into datum structure
 
+// Puts resulting value into temp_val
 // Example datum structure:
 Datum {
   field0: {
@@ -254,8 +255,16 @@ Datum {
     }
   }
 }
+```
 
-// Puts resulting value into temp_val
+d) Input Reference:
+```aiken
+// Match exact output reference
+in_ref: Some(output_reference)
+
+
+// No output reference restriction
+in_ref: None
 ```
 
 ### Input Constraint Examples:
@@ -363,6 +372,15 @@ datum: SomeTwo((prefix_bytes, postfix_bytes))
 
 // No datum requirements
 datum: Nada
+```
+
+d) Script ref Requirements:
+```aiken
+// Exact script hash match in reference_script field
+ref: Some(script_hash)
+
+// No reference_script requirements
+ref: None
 ```
 
 ### Output Constraint Examples:

@@ -14,7 +14,7 @@ use cardano/transaction.{
 }
 use config
 use prefix.{nonce_prefix}
-use types.{AccountState, Secp, Setup, Signed, Verification}
+use types.{AccountState, ColdVerification, Secp, Setup, Signed, Verification}
 use utils.{dataify}
 
 test setup_stake_bullet() {
@@ -41,7 +41,7 @@ test setup_stake_bullet() {
       |> merge(from_lovelace(10000))
 
   let account_state =
-    AccountState(1, [], Verification([]), [], Verification([]))
+    AccountState(Verification([], [], 1, 1), ColdVerification([], []))
 
   let nonce_state = 1
 
@@ -107,11 +107,8 @@ test setup_stake_bullet_ed25519() {
 
   let account_state =
     AccountState(
-      1,
-      [],
-      Verification([Pair(public_key_hot_hash, public_key_hot)]),
-      [],
-      Verification([Pair(public_key_cold_hash, public_key_cold)]),
+      Verification([Pair(public_key_hot_hash, public_key_hot)], [], 1, 1),
+      ColdVerification([Pair(public_key_cold_hash, public_key_cold)], []),
     )
 
   let nonce_state = 1
@@ -181,11 +178,8 @@ test setup_stake_bullet_ecdsa() {
 
   let account_state =
     AccountState(
-      1,
-      [Secp(public_key_hot)],
-      Verification([]),
-      [Secp(public_key_cold)],
-      Verification([]),
+      Verification([], [Secp(public_key_hot)], 1, 1),
+      ColdVerification([], [Secp(public_key_cold)]),
     )
 
   let nonce_state = 1

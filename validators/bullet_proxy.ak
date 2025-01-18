@@ -6,7 +6,7 @@ use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Input, OutputReference, Transaction}
 use config
 use types.{ColdControl, ColdCred, HotCred, Intention, ProxyAction, VaultSpend}
-use utils.{dataify, ref_global_control}
+use utils.{dataify, ref_control_datum_by_nft}
 
 fn must_have_key_data(
   withdrawals: Pairs<Credential, Lovelace>,
@@ -36,7 +36,7 @@ validator proxy_spend {
           ..
         ] =
           reference_inputs
-            |> ref_global_control(expected_nft)
+            |> ref_control_datum_by_nft(expected_nft)
             |> builtin.unconstr_fields
 
         if redeemer == dataify(HotCred) {

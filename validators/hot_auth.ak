@@ -5,9 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{
-  BulletCredential, Control, HotAccountSpend, Verification, Vk, Withdrawal,
-}
+use types.{Control, HotAccountSpend, Verification, Withdrawal}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
   must_have_key, ref_control_datum,
@@ -30,6 +28,14 @@ validator hot_spend {
           ..
         } = tx
 
+        let extra_signatories =
+          extra_signatories |> dataify |> builtin.un_list_data
+
+        let withdrawals =
+          withdrawals
+            |> dataify
+            |> builtin.un_map_data
+
         let outputs = dataify(outputs)
 
         expect HotAccountSpend { user_stake, sigs } = redeemer
@@ -39,35 +45,39 @@ validator hot_spend {
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-        expect Control { quorum, hot_cred, hot_cred_hash, .. } =
+        expect Control { hot_cred, .. } =
           reference_inputs
             |> ref_control_datum(expected_address, expected_nft)
 
-        expect quorum: Int = quorum
-
-        expect hot_cred_hash: BulletCredential = hot_cred_hash
-
         let inputs_spent = filter_hot_inputs(inputs, expected_address)
 
-        when hot_cred_hash is {
-          Verification(vks) ->
-            if hot_cred == dataify([]) {
-              (check_tx_observed(vks, extra_signatories) >= quorum)?
-            } else {
-              expect hot_cred: List<Vk> = hot_cred
+        if builtin.unconstr_index(hot_cred) == 0 {
+          expect Verification { edd25519_keys, other_keys, hot_quorum, .. } =
+            hot_cred
 
-              let message =
-                (inputs_spent, outputs, fee)
-                  |> builtin.serialise_data()
-                  |> blake2b_256()
+          if other_keys == dataify([]) {
+            (check_tx_observed(
+              edd25519_keys |> builtin.un_map_data,
+              extra_signatories,
+            ) >= builtin.un_i_data(hot_quorum))?
+          } else {
+            let message =
+              (inputs_spent, outputs, fee)
+                |> builtin.serialise_data()
+                |> blake2b_256()
 
-              (check_tx_observed(vks, extra_signatories) + check_valid_vk_sigs(
-                hot_cred,
-                sigs,
-                message,
-              ) >= quorum)?
-            }
-          Withdrawal(sc) -> must_have_key(withdrawals, sc)?
+            (check_tx_observed(
+              edd25519_keys |> builtin.un_map_data,
+              extra_signatories,
+            ) + check_valid_vk_sigs(
+              other_keys |> builtin.un_list_data,
+              sigs |> builtin.un_list_data,
+              message,
+            ) >= builtin.un_i_data(hot_quorum))?
+          }
+        } else {
+          expect Withdrawal(sc) = hot_cred
+          must_have_key(withdrawals, sc)?
         }
       }
 

@@ -38,11 +38,11 @@ one_shot_output_index = 0
 namespace = "Bullet"
 
 [config.preview.bullet_hash]
-bytes = "2c37f1eaf3f33a14f0ec1140c74c10f78b3e5250580a926ca10f8ea6"
+bytes = "04451f9d70975d2128329476fc63bd749a886a258b2cfd476a5b7892"
 encoding = "hex"
 
 [config.preview.nonce_bullet_hash]
-bytes = "2d652b04dda2919010b063b0c7bd24e6abc1dff6b4bb4aa5eae25f8c"
+bytes = "79ab8797c0988e4ed9bcabedf640d539ca2ab21e6a8a490cbf5fcdf8"
 encoding = "hex"
 
 [config.preview.proxy_hash]

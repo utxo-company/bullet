@@ -7,11 +7,10 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
-use types.{AccountSpend,
-  BulletCredential, Control, Verification, Vk, Withdrawal}
+use types.{AccountSpend, ColdVerification, ColdWithdrawal, Control}
 use utils.{
-  check_all_tx_observed, check_all_valid_vk_sigs, filter_deleting_inputs,
-  must_find_key, must_have_key, ref_control_datum,
+  check_all_tx_observed, check_all_valid_vk_sigs, dataify,
+  filter_deleting_inputs, must_find_key, must_have_key, ref_control_datum,
 }
 
 fn pop_to_index(list: List<a>, index: Int) -> List<a> {
@@ -39,6 +38,12 @@ validator delete_account {
           ..
         } = tx
 
+        let extra_signatories = extra_signatories |> builtin.un_list_data
+
+        let withdrawals =
+          withdrawals
+            |> builtin.un_map_data
+
         expect AccountSpend(user_stake, sigs, control_index) = redeemer
 
         let stake_key = Some(Inline(Script(user_stake)))
@@ -57,7 +62,7 @@ validator delete_account {
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
-        expect Control { cold_cred, cold_cred_hash, .. } =
+        expect Control { cold_cred, .. } =
           inputs
             |> pop_to_index(control_index |> builtin.un_i_data)
             |> ref_control_datum(expected_address, expected_nft)
@@ -69,25 +74,37 @@ validator delete_account {
             |> must_find_key(config.bullet_hash)
             |> to_pairs
 
-        expect cold_cred: List<Vk> = cold_cred
-        expect cold_cred_hash: BulletCredential = cold_cred_hash
+        let cred_check =
+          if builtin.unconstr_index(cold_cred) == 0 {
+            expect ColdVerification(edd25519_keys, other_keys) = cold_cred
 
-        let message =
-          (inputs_spent, outputs, mint, fee)
-            |> builtin.serialise_data()
-            |> blake2b_256()
+            if other_keys == dataify([]) {
+              check_all_tx_observed(
+                edd25519_keys |> builtin.un_map_data,
+                extra_signatories,
+              )?
+            } else {
+              let message =
+                (inputs_spent, outputs, fee)
+                  |> builtin.serialise_data()
+                  |> blake2b_256()
 
-        and {
-          when cold_cred_hash is {
-            Verification(vks) ->
-              check_all_tx_observed(vks, extra_signatories)? && check_all_valid_vk_sigs(
-                cold_cred,
-                sigs,
+              check_all_tx_observed(
+                edd25519_keys |> builtin.un_map_data,
+                extra_signatories,
+              )? && check_all_valid_vk_sigs(
+                other_keys |> builtin.un_list_data,
+                sigs |> builtin.un_list_data,
                 message,
               )?
+            }
+          } else {
+            expect ColdWithdrawal(sc) = cold_cred
+            must_have_key(withdrawals, sc)?
+          }
 
-            Withdrawal(sc) -> must_have_key(withdrawals, sc)?
-          },
+        and {
+          cred_check,
           (name == user_stake)?,
           (quantity == -1)?,
         }
