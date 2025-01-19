@@ -1,11 +1,5 @@
 import { Data } from "@lucid-evolution/lucid";
 
-export const BulletRedeemerSchema = Data.Object({});
-
-export type BulletRedeemerType = Data.Static<typeof BulletRedeemerSchema>;
-export const BulletRedeemerType =
-  BulletRedeemerSchema as unknown as BulletRedeemerType;
-
 export const SecpSchema = Data.Object({
   Secp: Data.Tuple([Data.Bytes({ minLength: 33, maxLength: 33 })]),
 });
@@ -17,12 +11,25 @@ export const SchnorrSchema = Data.Object({
 export const VkSchema = Data.Enum([SecpSchema, SchnorrSchema]);
 
 export const VerificationSchema = Data.Object({
-  Verification: Data.Tuple([
-    Data.Map(
+  Verification: Data.Object({
+    ed25519_keys: Data.Map(
       Data.Bytes({ minLength: 28, maxLength: 28 }),
       Data.Bytes({ minLength: 32, maxLength: 32 }),
     ),
-  ]),
+    other_keys: Data.Array(VkSchema),
+    hot_quorum: Data.Integer({ minimum: 1 }),
+    wallet_quorum: Data.Integer({ minimum: 1 }),
+  }),
+});
+
+export const ColdVerificationSchema = Data.Object({
+  ColdVerification: Data.Object({
+    ed25519_keys: Data.Map(
+      Data.Bytes({ minLength: 28, maxLength: 28 }),
+      Data.Bytes({ minLength: 32, maxLength: 32 }),
+    ),
+    other_keys: Data.Array(VkSchema),
+  }),
 });
 
 export const VerificationKeySchema = Data.Object({
@@ -42,18 +49,24 @@ export const WithdrawalSchema = Data.Object({
   Withdrawal: Data.Tuple([CredentialSchema]),
 });
 
-export const BulletCredentialSchema = Data.Enum([
+export const ColdWithdrawalSchema = Data.Object({
+  ColdWithdrawal: Data.Tuple([CredentialSchema]),
+});
+
+export const HotBulletCredentialSchema = Data.Enum([
   VerificationSchema,
   WithdrawalSchema,
 ]);
 
+export const ColdBulletCredentialSchema = Data.Enum([
+  ColdVerificationSchema,
+  ColdWithdrawalSchema,
+]);
+
 export const ControlSchema = Data.Object({
   Control: Data.Object({
-    quorum: Data.Integer(),
-    hotCred: Data.Array(VkSchema),
-    hotCredHash: BulletCredentialSchema,
-    coldCred: Data.Array(VkSchema),
-    coldCredHash: BulletCredentialSchema,
+    hotCred: HotBulletCredentialSchema,
+    coldCred: ColdBulletCredentialSchema,
   }),
 });
 

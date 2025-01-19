@@ -140,14 +140,20 @@ async function setupBullet() {
 
   const controlDatum: BulletDatumType = {
     Control: {
-      quorum: 1n,
-      hotCred: [],
-      hotCredHash: {
-        Verification: [new Map([[userPayCred.hash, userPublicKey]])],
+      hotCred: {
+        Verification: {
+          ed25519_keys: new Map([[userPayCred.hash, userPublicKey]]),
+          other_keys: [],
+          hot_quorum: 1n,
+          wallet_quorum: 1n,
+        },
       },
-      coldCred: [],
-      coldCredHash: {
-        Verification: [new Map([[userPayCred.hash, userPublicKey]])],
+
+      coldCred: {
+        ColdVerification: {
+          ed25519_keys: new Map([[userPayCred.hash, userPublicKey]]),
+          other_keys: [],
+        },
       },
     },
   };
