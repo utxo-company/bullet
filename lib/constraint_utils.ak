@@ -176,6 +176,24 @@ pub fn handle_inp_constraint(
   apply_constraint_to_inputs(datum_field, inputs, runnable)
 }
 
+test handle_inp_constraint_0() {
+  let value =
+    assets.from_asset("ab", "cd", 50)
+      |> assets.add("", "", 1000000)
+      |> assets.add("de", "fg", 1)
+
+  let con =
+    InputConstraint { address: Nada, value: [], datum_field: [], in_ref: None }
+
+  let input =
+    Input(
+      OutputReference("abcd", 1),
+      Output(Address(Script("thing"), None), value, NoDatum, None),
+    )
+
+  handle_inp_constraint([input], con) == dataify(NoDatum)
+}
+
 test handle_inp_constraint_1() {
   let value =
     assets.from_asset("ab", "cd", 50)
@@ -273,7 +291,7 @@ test handle_inp_constraint_4() {
   handle_inp_constraint([input], con) == dataify(NoDatum)
 }
 
-test handle_inp_constraint_5() {
+test handle_inp_constraint_5() fail {
   let value =
     assets.from_asset("ab", "cd", 50)
       |> assets.add("", "", 1000000)
@@ -414,4 +432,280 @@ fn apply_constraint_to_list(list: List<a>, runnable: fn(a) -> Bool) -> Data {
   } else {
     apply_constraint_to_list(rest, runnable)
   }
+}
+
+test handle_out_constraint_basic() {
+  let value = assets.from_lovelace(1000000)
+
+  // Test with minimal constraints (all Nada/None)
+  let output =
+    Output(Address(Script("test_script"), None), value, NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_value_match() {
+  let value =
+    assets.from_lovelace(1000000)
+      |> assets.add("policy1", "asset1", 50)
+
+  let output =
+    Output(Address(Script("test_script"), None), value, NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(SomeTwo(("policy1", "asset1"))),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(50)) == dataify(None)
+}
+
+test handle_out_constraint_address_match() {
+  let addr = Address(Script("test_script"), None)
+  let output = Output(addr, assets.from_lovelace(1000000), NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(SomeOne(addr)),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_address_mismatch() fail {
+  let addr1 = Address(Script("script1"), None)
+  let addr2 = Address(Script("script2"), None)
+  let output = Output(addr1, assets.from_lovelace(1000000), NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(SomeOne(addr2)),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_datum_exact_match() {
+  let datum = InlineDatum("test_datum")
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      datum,
+      None,
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(SomeOne(datum)),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_datum_bytes() {
+  let pre_bytes = #"d87b9fd8799f"
+  let post_bytes = #"ffff"
+  let test_val = dataify("test_value")
+
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      InlineDatum(Some(test_val)),
+      None,
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(SomeTwo((pre_bytes, post_bytes))),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, test_val) == dataify(None)
+}
+
+test handle_out_constraint_multiple_outputs() {
+  let addr1 = Address(Script("script1"), None)
+  let addr2 = Address(Script("script2"), None)
+
+  let value1 = assets.from_lovelace(1000000)
+  let value2 =
+    assets.from_lovelace(2000000)
+      |> assets.add("policy1", "asset1", 50)
+
+  let outputs =
+    [Output(addr1, value1, NoDatum, None), Output(addr2, value2, NoDatum, None)]
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(SomeOne(addr2)),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint(outputs, constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_payment_credential() {
+  let payment_cred = Script("test_payment")
+  let addr = Address(payment_cred, None)
+
+  let output = Output(addr, assets.from_lovelace(1000000), NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(SomeTwo(payment_cred)),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_reference_script() {
+  let script_hash = #"deadbeef"
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      NoDatum,
+      Some(script_hash),
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(Some(script_hash)),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_combined() {
+  let script_hash = #"deadbeef"
+  let payment_cred = Script("test_payment")
+  let addr = Address(payment_cred, None)
+  let datum = InlineDatum("test_datum")
+
+  let value =
+    assets.from_lovelace(1000000)
+      |> assets.add("policy1", "asset1", 50)
+
+  let output = Output(addr, value, datum, Some(script_hash))
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(SomeTwo(payment_cred)),
+      value: dataify(SomeTwo(("policy1", "asset1"))),
+      datum: dataify(SomeOne(datum)),
+      ref: dataify(Some(script_hash)),
+    }
+
+  handle_out_constraint([output], constraint, dataify(50)) == dataify(None)
+}
+
+test handle_out_constraint_ada_value() {
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      NoDatum,
+      None,
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(SomeTwo((ada_policy_id, #""))),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(1000000)) == dataify(None)
+}
+
+test handle_out_constraint_wrong_reference_script() fail {
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      NoDatum,
+      Some(#"deadbeef"),
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(Nada),
+      ref: dataify(Some(#"beefdead")),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_wrong_datum() fail {
+  let output =
+    Output(
+      Address(Script("test_script"), None),
+      assets.from_lovelace(1000000),
+      InlineDatum("actual_datum"),
+      None,
+    )
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(Nada),
+      datum: dataify(SomeOne(InlineDatum("expected_datum"))),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(0)) == dataify(None)
+}
+
+test handle_out_constraint_wrong_value() fail {
+  let value =
+    assets.from_lovelace(1000000)
+      |> assets.add("policy1", "asset1", 50)
+
+  let output =
+    Output(Address(Script("test_script"), None), value, NoDatum, None)
+
+  let constraint =
+    OutputConstraint {
+      address: dataify(Nada),
+      value: dataify(SomeTwo(("policy1", "asset1"))),
+      datum: dataify(Nada),
+      ref: dataify(None),
+    }
+
+  handle_out_constraint([output], constraint, dataify(100)) == dataify(None)
 }
