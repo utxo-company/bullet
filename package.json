@@ -21,6 +21,7 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
+    "@emurgo/cardano-message-signing-nodejs": "^1.1.0",
     "@lucid-evolution/lucid": "^0.4.20"
   }
 }

@@ -14,6 +14,7 @@ import {
   keyHashToCredential,
   stakeCredentialOf,
   getAddressDetails,
+  credentialToAddress,
 } from "@lucid-evolution/lucid";
 
 import {
@@ -60,6 +61,7 @@ import {
 } from "./bulletConsts";
 import { IntentionRedeemerType, IntentType } from "./intentTypes";
 import { AddressSchema } from "./otherTypes";
+import { signedDataBytes } from "./signing";
 
 async function setupBullet() {
   // Initialize Lucid with Koios provider
@@ -504,6 +506,8 @@ async function intentSpend(lucid: LucidEvolution) {
 
   const refGlobalState = await lucid.utxosAt(proxyAddress);
 
+  console.log("Here");
+
   const intent: IntentType = {
     constraints: [
       {
@@ -545,15 +549,24 @@ async function intentSpend(lucid: LucidEvolution) {
         outputIndex: 0,
       },
     ])
-    .pay.ToAddressWithData(randomAccount.address, {
-      kind: "inline",
-      value: intentMessage,
-    })
+    .pay.ToAddressWithData(
+      credentialToAddress(
+        "Preview",
+        getAddressDetails(randomAccount.address).paymentCredential!,
+      ),
+      {
+        kind: "inline",
+        value: intentMessage,
+      },
+    )
     .complete({ coinSelection: false, includeLeftoverLovelaceAsFee: true });
 
   console.log("Here3");
 
   const miniTxBytes = miniTx.toCBOR();
+
+  console.log(miniTxBytes);
+
   const parts = miniTxBytes.split(intentMessage);
   const prefix = parts[0];
   const postfix = parts[1];
@@ -567,7 +580,6 @@ async function intentSpend(lucid: LucidEvolution) {
     .ed25519_signature()
     .to_hex();
 
-  console.log(signature);
   console.log("Here5");
 
   const intentSpendRedeemer: IntentionRedeemerType = {

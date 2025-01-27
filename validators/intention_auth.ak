@@ -61,7 +61,7 @@ fn expect_item(constr: Data) {
   item
 }
 
-type Red {
+pub type Red {
   intentions: Data<List<SignedIntention>>,
   intent_user_counts: Data<List<ByteArray>>,
   change_output_offset: Int,
@@ -233,5 +233,15 @@ validator intent_spend {
       Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
+  }
+}
+
+validator intent_spend_types {
+  withdraw(_red: Red, _cred, _sc) {
+    fail
+  }
+
+  else(_sc) {
+    fail
   }
 }

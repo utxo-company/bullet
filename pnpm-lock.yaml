@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@emurgo/cardano-message-signing-nodejs':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@lucid-evolution/lucid':
         specifier: ^0.4.20
         version: 0.4.20(@harmoniclabs/bytestring@1.0.0)(@harmoniclabs/cbor@1.5.0)(@harmoniclabs/crypto@0.2.5)(@harmoniclabs/pair@1.0.0)(fast-check@3.23.2)
