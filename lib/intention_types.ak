@@ -29,7 +29,7 @@ pub type InputConstraint {
 pub type OutputConstraint {
   address: Data<Options<Address, Credential>>,
   value: Data<
-    Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
+    Options<Pairs<PolicyId, Pairs<AssetName, Int>>, (PolicyId, AssetName)>,
   >,
   datum: Data<Options<Data, (ByteArray, ByteArray)>>,
   // Technically should be Option<Option<ScriptHash>>, but I can't think of

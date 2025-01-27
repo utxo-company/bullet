@@ -36,7 +36,7 @@ pub fn nonce_check(
   if nonce_state == -1 {
     True
   } else {
-    expect [Output(address, value, InlineDatum(datum), _), ..] =
+    expect [Output { address, value, datum: InlineDatum(datum), .. }, ..] =
       skip_list_macro(outputs, builtin.un_i_data(nonce_output_index))
 
     expect new_nonce: Nonce = datum

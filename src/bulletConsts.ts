@@ -193,3 +193,8 @@ export const changeAuthRewardAddress = validatorToRewardAddress(
   "Preview",
   changeAuthScript,
 );
+
+export const intentAuthRewardAddress = validatorToRewardAddress(
+  "Preview",
+  intentAuthScript,
+);

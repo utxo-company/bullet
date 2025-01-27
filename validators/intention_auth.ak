@@ -230,7 +230,7 @@ validator intent_spend {
           handle_constraint,
         )
       }
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

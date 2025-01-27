@@ -24,7 +24,7 @@ use utils.{dataify, must_have_key, ref_control_datum}
 /// Note this can only be used for output values since
 /// it can only handle positive values greater than 0
 /// if used improperly then == comparisons will fail!!!
-fn fast_combine_output_value(
+pub fn fast_combine_output_value(
   left: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
   right: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
 ) {
@@ -94,7 +94,7 @@ fn do_insert_right_output_val(
 /// Note this can only be used for input values since
 /// it can only handle positive values greater than 0
 /// if used improperly then == comparisons will fail!!!
-fn fast_combine_natural_values(
+pub fn fast_combine_natural_values(
   left: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
   right: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
 ) -> Pairs<Data<PolicyId>, Data<OutputAssetMap>> {

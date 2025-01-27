@@ -53,7 +53,7 @@ validator proxy_spend {
           must_have_key_data(withdrawals, delete_contract)
         }
       }
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

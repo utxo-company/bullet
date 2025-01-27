@@ -44,7 +44,8 @@ validator delete_account {
           withdrawals
             |> builtin.un_map_data
 
-        expect AccountSpend(user_stake, sigs, control_index) = redeemer
+        expect AccountSpend { user_stake, sigs, index: control_index } =
+          redeemer
 
         let stake_key = Some(Inline(Script(user_stake)))
 
@@ -109,7 +110,7 @@ validator delete_account {
           (quantity == -1)?,
         }
       }
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

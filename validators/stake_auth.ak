@@ -37,11 +37,12 @@ validator wallet_stake {
             |> dataify
             |> builtin.un_map_data
 
-        expect HotAccountStake(Script(user_hash), sigs) = redeemer
+        expect HotAccountStake { user_stake: Script(user_hash), sigs } =
+          redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_hash, 1)])]
 
-        expect Control(hot_cred, _) =
+        expect Control { hot_cred, .. } =
           reference_inputs
             |> ref_control_datum_by_nft(expected_nft)
 
@@ -75,7 +76,7 @@ validator wallet_stake {
         }
       }
 
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

@@ -198,7 +198,7 @@ validator cold_control {
         }
       }
 
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

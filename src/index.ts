@@ -11,6 +11,9 @@ import {
   toHex,
   LucidEvolution,
   generateEmulatorAccount,
+  keyHashToCredential,
+  stakeCredentialOf,
+  getAddressDetails,
 } from "@lucid-evolution/lucid";
 
 import {
@@ -43,6 +46,7 @@ import {
   hotAuthRewardAddress,
   hotAuthScript,
   intentAuthHash,
+  intentAuthRewardAddress,
   intentAuthScript,
   oneShotMintPolicy,
   oneShotMintScript,
@@ -54,6 +58,8 @@ import {
   walletAuthRewardAddress,
   walletAuthScript,
 } from "./bulletConsts";
+import { IntentionRedeemerType, IntentType } from "./intentTypes";
+import { AddressSchema } from "./otherTypes";
 
 async function setupBullet() {
   // Initialize Lucid with Koios provider
@@ -119,6 +125,7 @@ async function setupBullet() {
     .register.Stake(walletAuthRewardAddress)
     .register.Stake(coldAuthRewardAddress)
     .register.Stake(changeAuthRewardAddress)
+    .register.Stake(intentAuthRewardAddress)
     .complete();
 
   const registerTxHash = await registerTx.sign
@@ -223,10 +230,6 @@ async function hotSpend(lucid: LucidEvolution) {
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 3));
 
-  const utxo2 = await lucid
-    .utxosAt(bulletAddress)
-    .then((l) => l.filter((u) => u.outputIndex === 4));
-
   const refUserState = await lucid
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 0));
@@ -243,7 +246,6 @@ async function hotSpend(lucid: LucidEvolution) {
     .readFrom(refUserState)
     .readFrom(refGlobalState)
     .collectFrom(utxo, Data.void())
-    // .collectFrom(utxo2, Data.void())
     .withdraw(proxyRewardAddress, 0n, Data.to("HotCred", ProxyRedeemerType))
     .withdraw(
       hotAuthRewardAddress,
@@ -394,7 +396,21 @@ async function coldSpend(lucid: LucidEvolution) {
 }
 
 async function changeAuth(lucid: LucidEvolution) {
-  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+  const newInitAccount: EmulatorAccount = {
+    seedPhrase: "",
+    address: "addr_test1vrammxt0w7kelznjmc49s73cs27k2lhnumpn40wkyfs58sqfwre47",
+    assets: { lovelace: 1000000000n },
+    privateKey:
+      "ed25519_sk1stphv6l0ls6qs7nu2yve7xxs477ta7uul3z9csqrdz697a0xzsusdam0ap",
+  };
+
+  const newUserPayCred = paymentCredentialOf(newInitAccount.address);
+
+  const newUserPk = toHex(
+    CML.PublicKey.from_bech32(
+      toPublicKey(newInitAccount.privateKey),
+    ).to_raw_bytes(),
+  );
 
   const utxo = await lucid
     .utxosAt(bulletAddress)
@@ -419,12 +435,38 @@ async function changeAuth(lucid: LucidEvolution) {
     migration: false,
   };
 
+  const controlDatum: BulletDatumType = {
+    Control: {
+      hotCred: {
+        Verification: {
+          ed25519_keys: new Map([[newUserPayCred.hash, newUserPk]]),
+          other_keys: [],
+          hot_quorum: 1n,
+          wallet_quorum: 1n,
+        },
+      },
+
+      coldCred: {
+        ColdVerification: {
+          ed25519_keys: new Map([[newUserPayCred.hash, newUserPk]]),
+          other_keys: [],
+        },
+      },
+    },
+  };
+
   const changeAuthTx = await lucid
     .newTx()
-    .collectFrom(utxoUserState)
     .readFrom(refGlobalState)
-    .collectFrom(utxo, Data.void())
-    .collectFrom(utxo2, Data.void())
+    .collectFrom([...utxo, ...utxo2, ...utxoUserState], Data.void())
+    .pay.ToContract(
+      bulletAddress,
+      {
+        kind: "inline",
+        value: Data.to(controlDatum, BulletDatumType),
+      },
+      { [bulletMintPolicy + bulletStakeHash]: 1n },
+    )
     .withdraw(proxyRewardAddress, 0n, Data.to("ColdControl", ProxyRedeemerType))
     .withdraw(
       changeAuthRewardAddress,
@@ -432,6 +474,7 @@ async function changeAuth(lucid: LucidEvolution) {
       Data.to(changeCredRedeemer, ChangeCredType),
     )
     .addSigner(await lucid.wallet().address())
+    .addSigner(newInitAccount.address)
     .attach.SpendingValidator(bulletScript)
     .attach.WithdrawalValidator(proxyScript)
     .attach.WithdrawalValidator(changeAuthScript)
@@ -439,12 +482,127 @@ async function changeAuth(lucid: LucidEvolution) {
 
   const changeAuthTxHash = await changeAuthTx.sign
     .withWallet()
+    .sign.withPrivateKey(newInitAccount.privateKey)
     .complete()
     .then((t) => t.submit());
 
   await lucid.awaitTx(changeAuthTxHash);
 
   console.log("Done ChangeAuth");
+}
+
+async function intentSpend(lucid: LucidEvolution) {
+  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+
+  const utxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 3));
+
+  const refUserState = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 0));
+
+  const refGlobalState = await lucid.utxosAt(proxyAddress);
+
+  const intent: IntentType = {
+    constraints: [
+      {
+        OutConNil: [
+          {
+            address: {
+              SomeTwo: [
+                {
+                  VerificationKey: [
+                    paymentCredentialOf(randomAccount.address).hash,
+                  ],
+                },
+              ],
+            },
+            value: "Nada",
+            datum: "Nada",
+            ref: "None",
+          },
+        ],
+      },
+    ],
+    nonce: { Sequential: [1n] },
+    valueLeaving: [5000000n, new Map()],
+  };
+
+  const intentMessage = Data.to(intent, IntentType);
+
+  let miniTx = await lucid
+    .newTx()
+    .collectFrom([
+      {
+        address: proxyAddress,
+        assets: { lovelace: 1500000n },
+        txHash: "00",
+        outputIndex: 0,
+      },
+    ])
+    .pay.ToAddressWithData(proxyAddress, {
+      kind: "inline",
+      value: intentMessage,
+    })
+    .complete({ coinSelection: false, includeLeftoverLovelaceAsFee: true });
+
+  const miniTxBytes = miniTx.toCBOR();
+  const parts = miniTxBytes.split(intentMessage);
+  const prefix = parts[0];
+  const postfix = parts[1];
+
+  const signature = miniTx.sign
+    .withWallet()
+    .toTransaction()
+    .witness_set()
+    .vkeywitnesses()!
+    .get(0)
+    .ed25519_signature()
+    .to_hex();
+
+  const intentSpendRedeemer: IntentionRedeemerType = {
+    constraintOutput: 0n,
+    changeOutput: 1n,
+    constraintRedeemer: 0n,
+    intentionGroups: [""],
+    intentions: [
+      {
+        intent,
+        prefix,
+        postfix,
+        signatures: [signature],
+        userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
+      },
+    ],
+  };
+
+  const intentSpendTx = await lucid
+    .newTx()
+    .readFrom(refUserState)
+    .readFrom(refGlobalState)
+    .collectFrom(utxo, Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("Intention", ProxyRedeemerType))
+    .withdraw(
+      hotAuthRewardAddress,
+      0n,
+      Data.to(intentSpendRedeemer, IntentionRedeemerType),
+    )
+    .pay.ToAddress(randomAccount.address, { lovelace: 3000000n })
+    .addSigner(await lucid.wallet().address())
+    .attach.SpendingValidator(bulletScript)
+    .attach.WithdrawalValidator(proxyScript)
+    .attach.WithdrawalValidator(hotAuthScript)
+    .complete({ changeAddress: bulletAddress });
+
+  const intentSpendTxHash = await intentSpendTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(intentSpendTxHash);
+
+  console.log("Done HotSpend");
 }
 
 setupBullet()
@@ -457,4 +615,8 @@ setupBullet()
 
 setupBullet()
   .then((l) => coldSpend(l))
+  .catch(console.error);
+
+setupBullet()
+  .then((l) => changeAuth(l))
   .catch(console.error);

@@ -35,7 +35,7 @@ validator cold_spend {
           withdrawals
             |> builtin.un_map_data
 
-        expect AccountSpend(user_stake, sigs, nonce_output) = redeemer
+        expect AccountSpend { user_stake, sigs, index: nonce_output } = redeemer
 
         let expected_nft = [Pair(config.bullet_hash, [Pair(user_stake, 1)])]
 
@@ -103,7 +103,7 @@ validator cold_spend {
           )?,
         }
       }
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }

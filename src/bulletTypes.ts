@@ -1,4 +1,5 @@
 import { Data } from "@lucid-evolution/lucid";
+import { CredentialSchema } from "./otherTypes";
 
 export const SecpSchema = Data.Object({
   Secp: Data.Tuple([Data.Bytes({ minLength: 33, maxLength: 33 })]),
@@ -31,19 +32,6 @@ export const ColdVerificationSchema = Data.Object({
     other_keys: Data.Array(VkSchema),
   }),
 });
-
-export const VerificationKeySchema = Data.Object({
-  VerificationKey: Data.Tuple([Data.Bytes({ minLength: 28, maxLength: 28 })]),
-});
-
-export const ScriptSchema = Data.Object({
-  Script: Data.Tuple([Data.Bytes({ minLength: 28, maxLength: 28 })]),
-});
-
-export const CredentialSchema = Data.Enum([
-  VerificationKeySchema,
-  ScriptSchema,
-]);
 
 export const WithdrawalSchema = Data.Object({
   Withdrawal: Data.Tuple([CredentialSchema]),

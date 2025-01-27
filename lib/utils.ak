@@ -359,8 +359,10 @@ pub fn filter_hot_inputs(
   when list is {
     [] -> []
     [input, ..xs] -> {
-      let Input(output_reference, Output { address: in_address, datum, .. }) =
-        input
+      let Input {
+        output_reference,
+        output: Output { address: in_address, datum, .. },
+      } = input
 
       if in_address == address {
         if datum == InlineDatum(Vault) {
@@ -389,7 +391,8 @@ pub fn filter_deleting_inputs(
   when list is {
     [] -> []
     [input, ..xs] -> {
-      let Input(output_reference, Output { address: in_address, .. }) = input
+      let Input { output_reference, output: Output { address: in_address, .. } } =
+        input
 
       if in_address == address || in_address == nonce_address {
         [output_reference, ..filter_deleting_inputs(xs, address, nonce_address)]
@@ -419,8 +422,10 @@ pub fn resolve_user_tx(
   when list is {
     [] -> callback(filtered_inputs, nonce_present)
     [input, ..xs] -> {
-      let Input(output_reference, Output { address: in_address, .. } as output) =
-        input
+      let Input {
+        output_reference,
+        output: Output { address: in_address, .. } as output,
+      } = input
 
       if in_address == address {
         resolve_user_tx(

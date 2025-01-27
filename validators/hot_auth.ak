@@ -81,7 +81,7 @@ validator hot_spend {
         }
       }
 
-      Publishing(_, RegisterCredential { .. }) -> True
+      Publishing { certificate: RegisterCredential { .. }, .. } -> True
       _ -> fail
     }
   }
