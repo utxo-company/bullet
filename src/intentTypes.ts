@@ -147,7 +147,7 @@ export const IntentSchema = Data.Object({
   constraints: Data.Array(ConstraintSchema),
   valueLeaving: Data.Tuple([
     Data.Integer({ minimum: 0 }),
-    Data.Map(Data.Bytes({ minLength: 28, maxLength: 28 }), AssetSchema),
+    Data.Map(Data.Bytes({ minLength: 28, maxLength: 28 }), OutputAssetMap),
   ]),
   nonce: NonceSchema,
 });

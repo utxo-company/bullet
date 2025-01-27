@@ -520,7 +520,7 @@ async function intentSpend(lucid: LucidEvolution) {
             },
             value: "Nada",
             datum: "Nada",
-            ref: "None",
+            ref: "Nope",
           },
         ],
       },
@@ -530,36 +530,45 @@ async function intentSpend(lucid: LucidEvolution) {
   };
 
   const intentMessage = Data.to(intent, IntentType);
+  console.log("Here2");
+
+  console.log("Here3");
 
   let miniTx = await lucid
     .newTx()
     .collectFrom([
       {
-        address: proxyAddress,
+        address: randomAccount.address,
         assets: { lovelace: 1500000n },
-        txHash: "00",
+        txHash:
+          "d6ad0a886fa731d0c5571ec673214bd90f1eeabd5d5ed3f5e4c942e32e9ef6b7",
         outputIndex: 0,
       },
     ])
-    .pay.ToAddressWithData(proxyAddress, {
+    .pay.ToAddressWithData(randomAccount.address, {
       kind: "inline",
       value: intentMessage,
     })
     .complete({ coinSelection: false, includeLeftoverLovelaceAsFee: true });
+
+  console.log("Here3");
 
   const miniTxBytes = miniTx.toCBOR();
   const parts = miniTxBytes.split(intentMessage);
   const prefix = parts[0];
   const postfix = parts[1];
 
-  const signature = miniTx.sign
-    .withWallet()
+  console.log("Here4");
+  const signature = (await miniTx.sign.withWallet().complete())
     .toTransaction()
     .witness_set()
     .vkeywitnesses()!
     .get(0)
     .ed25519_signature()
     .to_hex();
+
+  console.log(signature);
+  console.log("Here5");
 
   const intentSpendRedeemer: IntentionRedeemerType = {
     constraintOutput: 0n,
@@ -584,15 +593,14 @@ async function intentSpend(lucid: LucidEvolution) {
     .collectFrom(utxo, Data.void())
     .withdraw(proxyRewardAddress, 0n, Data.to("Intention", ProxyRedeemerType))
     .withdraw(
-      hotAuthRewardAddress,
+      intentAuthRewardAddress,
       0n,
       Data.to(intentSpendRedeemer, IntentionRedeemerType),
     )
-    .pay.ToAddress(randomAccount.address, { lovelace: 3000000n })
-    .addSigner(await lucid.wallet().address())
+    .pay.ToAddress(randomAccount.address, { lovelace: 5000000n })
     .attach.SpendingValidator(bulletScript)
     .attach.WithdrawalValidator(proxyScript)
-    .attach.WithdrawalValidator(hotAuthScript)
+    .attach.WithdrawalValidator(intentAuthScript)
     .complete({ changeAddress: bulletAddress });
 
   const intentSpendTxHash = await intentSpendTx.sign
@@ -619,4 +627,8 @@ setupBullet()
 
 setupBullet()
   .then((l) => changeAuth(l))
+  .catch(console.error);
+
+setupBullet()
+  .then((l) => intentSpend(l))
   .catch(console.error);

@@ -71,7 +71,7 @@ export const OptionSchema = <T1 extends TSchema>(schema: T1) =>
     Data.Object({
       Some: Data.Tuple([schema]),
     }),
-    Data.Literal("None"),
+    Data.Literal("Nope"),
   ]);
 
 export const OptionsSchema = <T1 extends TSchema, T2 extends TSchema>(
