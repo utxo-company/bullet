@@ -24,36 +24,43 @@ use utils.{dataify, must_have_key, ref_control_datum}
 /// Note this can only be used for output values since
 /// it can only handle positive values greater than 0
 /// if used improperly then == comparisons will fail!!!
+///
+/// Also note the first policy for the right must be >= to the last policy in the left
+/// This also applies to the asset map as well
 pub fn fast_combine_output_value(
   left: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
   right: Pairs<Data<PolicyId>, Data<OutputAssetMap>>,
 ) {
-  when right is {
-    [] -> left
-    [Pair(k, _) as p, ..rest] ->
-      do_insert_right_output_val(
-        left,
-        builtin.un_b_data(k),
-        p,
-        rest,
-        fn(left_asset, right_asset) {
-          expect [Pair(right_key, _) as right_pair, ..ys] =
-            right_asset |> builtin.un_map_data
-
+  when left is {
+    [] -> right
+    _ ->
+      when right is {
+        [] -> left
+        [Pair(k, _) as p, ..rest] ->
           do_insert_right_output_val(
-            builtin.un_map_data(left_asset),
-            builtin.un_b_data(right_key),
-            right_pair,
-            ys,
-            fn(left_int, right_int) {
-              dataify(
-                builtin.un_i_data(left_int) + builtin.un_i_data(right_int),
+            left,
+            builtin.un_b_data(k),
+            p,
+            rest,
+            fn(left_asset, right_asset) {
+              expect [Pair(right_key, _) as right_pair, ..ys] =
+                right_asset |> builtin.un_map_data
+
+              do_insert_right_output_val(
+                builtin.un_map_data(left_asset),
+                builtin.un_b_data(right_key),
+                right_pair,
+                ys,
+                fn(left_int, right_int) {
+                  dataify(
+                    builtin.un_i_data(left_int) + builtin.un_i_data(right_int),
+                  )
+                },
               )
+                |> dataify
             },
           )
-            |> dataify
-        },
-      )
+      }
   }
 }
 
@@ -64,28 +71,20 @@ fn do_insert_right_output_val(
   rest: Pairs<Data, Data>,
   equals_func,
 ) -> Pairs<Data, Data> {
-  when left is {
-    [] -> [p, ..rest]
-    [Pair(left_key, _) as left_pair, ..xs] ->
+  expect [left_pair, ..xs] = left
+  when xs is {
+    [] -> {
+      let Pair(left_key, _) = left_pair
+
       if builtin.un_b_data(left_key)
         |> builtin.less_than_bytearray(k) {
-        [left_pair, ..do_insert_right_output_val(xs, k, p, rest, equals_func)]
+        [left_pair, p, ..rest]
       } else {
-        let next =
-          when rest is {
-            [] -> xs
-            [Pair(right_key, _) as right_pair, ..rest] ->
-              do_insert_right_output_val(
-                xs,
-                builtin.un_b_data(right_key),
-                right_pair,
-                rest,
-                equals_func,
-              )
-          }
-
-        [Pair(left_key, equals_func(left_pair.2nd, p.2nd)), ..next]
+        [Pair(left_key, equals_func(left_pair.2nd, p.2nd)), ..rest]
       }
+    }
+
+    _ -> [left_pair, ..do_insert_right_output_val(xs, k, p, rest, equals_func)]
   }
 }
 
@@ -172,6 +171,9 @@ fn value_compare(
     let leaving_lace, leaving_val <- assets_gone
     and {
       input_lace <= output_lace + leaving_lace,
+      // We use input_val as the anchor to ensure no funny business with outputs or value_leaving
+      // What I mean is both output_value and value_leaving must be positive and ordered for it to match
+      // inputs which are guaranteed to come in ordered
       input_val == fast_combine_natural_values(output_val, leaving_val),
     }
   }
@@ -382,6 +384,7 @@ pub fn fold_intent_counts(
           expect [output, ..rest_outputs] = offset_outputs
           expect
             validate_out_nonce(user_stake, nonce_address, last_nonce, output)
+
           rest_outputs
         }
 
