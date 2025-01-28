@@ -179,6 +179,45 @@ fn value_compare(
   }
 }
 
+fn sig_checker(
+  hot_cred: Data,
+  validate_signature: fn(
+    Int,
+    Data<List<Vk>>,
+    Pairs<Data<VerificationKeyHash>, Data<VerificationKey>>,
+  ) ->
+    fn(List<Data<Signature>>, ByteArray) -> Bool,
+  prefix,
+  intent,
+  postfix,
+  signatures,
+) {
+  expect Verification { edd25519_keys, other_keys, hot_quorum, .. } = hot_cred
+
+  let validate_signature_post =
+    validate_signature(
+      builtin.un_i_data(hot_quorum),
+      other_keys,
+      edd25519_keys |> builtin.un_map_data,
+    )
+
+  let validate_signatures =
+    fn(prefix: ByteArray, intent: Data, postfix: ByteArray, signatures: Data) {
+      let message =
+        intent
+          |> serialise()
+          |> concat(prefix, _)
+          |> concat(postfix)
+          |> blake2b_256()
+
+      validate_signature_post(signatures |> builtin.un_list_data, message)
+    }
+
+  expect validate_signatures(prefix, intent, postfix, signatures)
+
+  validate_signatures
+}
+
 pub fn fold_intent_counts(
   intent_counts: List<Data<ByteArray>>,
   intentions: List<Data<SignedIntention>>,
@@ -271,39 +310,14 @@ pub fn fold_intent_counts(
         fn(callback) {
           let sig_function =
             if builtin.unconstr_index(hot_cred) == 0 {
-              expect Verification { edd25519_keys, other_keys, hot_quorum, .. } =
-                hot_cred
-
-              let validate_signature_post =
-                validate_signature(
-                  builtin.un_i_data(hot_quorum),
-                  other_keys |> builtin.un_list_data,
-                  edd25519_keys |> builtin.un_map_data,
-                )
-
-              let validate_signatures =
-                fn(
-                  prefix: ByteArray,
-                  intent: Data,
-                  postfix: ByteArray,
-                  signatures: Data,
-                ) {
-                  let message =
-                    intent
-                      |> serialise()
-                      |> concat(prefix, _)
-                      |> concat(postfix)
-                      |> blake2b_256()
-
-                  validate_signature_post(
-                    signatures |> builtin.un_list_data,
-                    message,
-                  )
-                }
-
-              expect validate_signatures(prefix, intent, postfix, signatures)
-
-              validate_signatures
+              sig_checker(
+                hot_cred,
+                validate_signature,
+                prefix,
+                intent,
+                postfix,
+                signatures,
+              )
             } else {
               expect Withdrawal(sc) = hot_cred
               // So you are probably wondering in what case do you use script withdraw
