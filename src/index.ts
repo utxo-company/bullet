@@ -508,8 +508,6 @@ async function intentSpend(lucid: LucidEvolution) {
 
   const refGlobalState = await lucid.utxosAt(proxyAddress);
 
-  console.log("Here");
-
   const intent: IntentType = {
     constraints: [
       {
@@ -536,9 +534,6 @@ async function intentSpend(lucid: LucidEvolution) {
   };
 
   const intentMessage = Data.to(intent, IntentType);
-  console.log("Here2");
-
-  console.log("Here3");
 
   const miniTx = await lucid
     .newTx()
@@ -581,13 +576,12 @@ async function intentSpend(lucid: LucidEvolution) {
 
   const miniTxBytes = miniTxCompress.toCBOR();
 
-  console.log(miniTxBytes);
+  // console.log(miniTxBytes);
 
   const parts = miniTxBytes.split(intentMessage);
   const prefix = parts[0];
   const postfix = parts[1];
 
-  console.log("Here4");
   const signature = (await miniTxCompress.sign.withWallet().complete())
     .toTransaction()
     .witness_set()
@@ -595,8 +589,6 @@ async function intentSpend(lucid: LucidEvolution) {
     .get(0)
     .ed25519_signature()
     .to_hex();
-
-  console.log("Here5");
 
   const intentSpendRedeemer: IntentionRedeemerType = {
     constraintOutput: 0n,
@@ -639,7 +631,157 @@ async function intentSpend(lucid: LucidEvolution) {
     .attach.SpendingValidator(bulletNonceScript)
     .complete({ changeAddress: bulletAddress });
 
-  console.log(intentSpendTx.toCBOR());
+  // console.log(intentSpendTx.toCBOR());
+
+  const intentSpendTxHash = await intentSpendTx.sign
+    .withWallet()
+    .complete()
+    .then((t) => t.submit());
+
+  await lucid.awaitTx(intentSpendTxHash);
+
+  console.log("Done IntentSpend");
+}
+
+async function intentSpend2(lucid: LucidEvolution) {
+  const randomAccount = generateEmulatorAccount({ lovelace: 20000000n });
+
+  const utxo = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 3));
+
+  const utxoNonce = await lucid.utxosAt(bulletNonceAddress);
+
+  const refUserState = await lucid
+    .utxosAt(bulletAddress)
+    .then((l) => l.filter((u) => u.outputIndex === 0));
+
+  const refGlobalState = await lucid.utxosAt(proxyAddress);
+
+  const intent: IntentType = {
+    constraints: [
+      {
+        OutConNil: [
+          {
+            address: {
+              SomeTwo: [
+                {
+                  VerificationKey: [
+                    paymentCredentialOf(randomAccount.address).hash,
+                  ],
+                },
+              ],
+            },
+            value: "Nada",
+            datum: "Nada",
+            ref: "Nope",
+          },
+        ],
+      },
+    ],
+    nonce: { Sequential: [1n] },
+    valueLeaving: [5000000n, new Map()],
+  };
+
+  const intentMessage = Data.to(intent, IntentType);
+
+  const miniTx = await lucid
+    .newTx()
+    .collectFrom([
+      {
+        address: randomAccount.address,
+        assets: { lovelace: 1500000n },
+        txHash:
+          "d6ad0a886fa731d0c5571ec673214bd90f1eeabd5d5ed3f5e4c942e32e9ef6b7",
+        outputIndex: 0,
+      },
+    ])
+    .pay.ToAddressWithData(
+      credentialToAddress(
+        "Preview",
+        getAddressDetails(randomAccount.address).paymentCredential!,
+      ),
+      {
+        kind: "inline",
+        value: intentMessage,
+      },
+    )
+    .complete({ coinSelection: false, includeLeftoverLovelaceAsFee: true });
+
+  const output = miniTx.toTransaction().body().outputs().get(0);
+
+  output.set_amount(CML.Value.from_coin(0n));
+
+  const outputs = CML.TransactionOutputList.new();
+
+  outputs.add(output);
+
+  const miniTxCompress = lucid.fromTx(
+    CML.Transaction.new(
+      CML.TransactionBody.new(CML.TransactionInputList.new(), outputs, 0n),
+      CML.TransactionWitnessSet.new(),
+      true,
+    ).to_cbor_hex(),
+  );
+
+  const miniTxBytes = miniTxCompress.toCBOR();
+
+  // console.log(miniTxBytes);
+
+  const parts = miniTxBytes.split(intentMessage);
+  const prefix = parts[0];
+  const postfix = parts[1];
+
+  const signature = (await miniTxCompress.sign.withWallet().complete())
+    .toTransaction()
+    .witness_set()
+    .vkeywitnesses()!
+    .get(0)
+    .ed25519_signature()
+    .to_hex();
+
+  const intentSpendRedeemer: IntentionRedeemerType = {
+    constraintOutput: 0n,
+    changeOutput: 1n,
+    constraintRedeemer: 0n,
+    intentionGroups: [""],
+    intentions: [
+      {
+        intent,
+        prefix,
+        postfix,
+        signatures: [signature],
+        userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
+      },
+    ],
+  };
+
+  const intentSpendTx = await lucid
+    .newTx()
+    .readFrom(refUserState)
+    .readFrom(refGlobalState)
+    .collectFrom([...utxo, ...utxoNonce], Data.void())
+    .withdraw(proxyRewardAddress, 0n, Data.to("Intention", ProxyRedeemerType))
+    .withdraw(
+      intentAuthRewardAddress,
+      0n,
+      Data.to(intentSpendRedeemer, IntentionRedeemerType),
+    )
+    .pay.ToAddress(randomAccount.address, { lovelace: 5000000n - 1000000n })
+    .pay.ToContract(
+      bulletNonceAddress,
+      { kind: "inline", value: Data.to(2n) },
+      {
+        [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n,
+      },
+    )
+    .attach.SpendingValidator(bulletScript)
+    .attach.WithdrawalValidator(proxyScript)
+    .attach.WithdrawalValidator(intentAuthScript)
+    .attach.SpendingValidator(bulletNonceScript)
+    .complete({ changeAddress: bulletAddress });
+
+  // console.log(intentSpendTx.toCBOR());
 
   const intentSpendTxHash = await intentSpendTx.sign
     .withWallet()

@@ -16,7 +16,7 @@ PROXY_TOML_KEY="proxy_hash"
 BULLET_PLUTUS_KEY=".validators.[0].hash"
 BULLET_TOML_KEY="bullet_hash"
 
-STAKE_PROXY_PLUTUS_KEY=".validators.[31].hash"
+STAKE_PROXY_PLUTUS_KEY=".validators.[33].hash"
 STAKE_PROXY_TOML_KEY="stake_proxy_hash"
 
 BULLET_NONCE_PLUTUS_KEY=".validators.[1].hash"

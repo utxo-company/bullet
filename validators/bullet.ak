@@ -13,10 +13,11 @@ use cardano/transaction.{
   Withdraw,
 }
 use config
+use offchain_types.{UtxoStatesT}
 use prefix.{nonce_prefix}
 use types.{
   AccountState, ColdVerification, ColdWithdrawal, Nonce, Setup, StakeActions,
-  UtxoStates, Verification, Withdrawal,
+  Verification, Withdrawal,
 }
 use utils.{
   check_all_tx_observed_and_hashes, check_all_valid_vk_sigs, dataify,
@@ -310,7 +311,7 @@ validator bullet {
 }
 
 validator bullet_types {
-  spend(_d: Option<UtxoStates>, _r: Void, _o, _tx) {
+  spend(_d: Option<UtxoStatesT>, _r: Void, _o, _tx) {
     fail
   }
 

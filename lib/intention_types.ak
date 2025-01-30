@@ -57,7 +57,7 @@ pub type IntentNonce {
 
 pub type Intent {
   constraints: Data<List<Constraint>>,
-  value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
+  value_leaving: (Lovelace, Data<Pairs<PolicyId, OutputAssetMap>>),
   nonce: IntentNonce,
 }
 

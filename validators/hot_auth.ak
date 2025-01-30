@@ -5,6 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
+use offchain_types.{HotAccountSpendT}
 use types.{Control, HotAccountSpend, Verification, Withdrawal}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, filter_hot_inputs,
@@ -88,7 +89,11 @@ validator hot_spend {
 }
 
 validator hot_spend_types {
-  withdraw(_signatures: HotAccountSpend, _account: Credential, _tx: Transaction) {
+  withdraw(
+    _signatures: HotAccountSpendT,
+    _account: Credential,
+    _tx: Transaction,
+  ) {
     fail
   }
 

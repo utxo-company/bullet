@@ -42,7 +42,7 @@ bytes = "3e8b3d0bda81efcd1ce86d17b7764e55551cec6783f90bbc31069d69"
 encoding = "hex"
 
 [config.preview.nonce_bullet_hash]
-bytes = "eb75109512db6112b0abb28a763b2f66068aa5d48cbaa3a6460da4ca"
+bytes = "37d20d7f8ff4bc0cf3bfae904ec92ff8d306bc964be0d94767b3cdc4"
 encoding = "hex"
 
 [config.preview.proxy_hash]
@@ -50,11 +50,11 @@ bytes = "b04621841bec49b38d231d3edb83d09dd385a81903927e467185f101"
 encoding = "hex"
 
 [config.preview.stake_proxy_hash]
-bytes = "b0153aa5ced5f435363b04ebb7a40a7b3ffc5d886008b914ad8a43f7"
+bytes = "d86bb152b638bf63db6d44aee0c3ff1818e13949cc4130ad5d459d57"
 encoding = "hex"
 
 [config.preview.new_user_tx_hash]
-bytes = "2522d244e4564ecdaae56cc28dd5f32b4fd5f176d944cbc889b205b92a865dbb"
+bytes = "0c06c51ff693f9f80c66978db009ff5f1e33030130a91c687af9f177b5b6bf26"
 encoding = "hex"
 
 [config.preview.one_shot_tx_hash]

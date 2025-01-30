@@ -5,6 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
+use offchain_types.{AccountSpendT}
 use types.{AccountSpend, Control, Verification, Withdrawal}
 use utils.{
   check_tx_observed, check_valid_vk_sigs, dataify, must_have_key,
@@ -115,7 +116,7 @@ validator wallet_spend {
 
 /// Allows spending from your vault or other utxos using all your hot keys
 validator vault_spend_types {
-  withdraw(_signatures: AccountSpend, _account: Credential, _tx: Transaction) {
+  withdraw(_signatures: AccountSpendT, _account: Credential, _tx: Transaction) {
     fail
   }
 

@@ -5,6 +5,7 @@ use cardano/certificate.{RegisterCredential}
 use cardano/script_context.{Publishing, ScriptContext, Withdrawing}
 use cardano/transaction.{Transaction}
 use config
+use offchain_types.{AccountSpendT}
 use types.{AccountSpend, ColdVerification, ColdWithdrawal, Control}
 use utils.{
   check_all_tx_observed, check_all_valid_vk_sigs, dataify, must_have_key,
@@ -110,7 +111,7 @@ validator cold_spend {
 }
 
 validator cold_spend_types {
-  withdraw(_signatures: AccountSpend, _account: Credential, _tx: Transaction) {
+  withdraw(_signatures: AccountSpendT, _account: Credential, _tx: Transaction) {
     fail
   }
 

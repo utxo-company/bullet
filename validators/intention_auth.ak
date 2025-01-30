@@ -18,6 +18,7 @@ use intention_types.{
 }
 use intention_utils.{fold_intent_counts}
 use macros.{SkipFuncPieces, list_skipper_macro_pieces}
+use offchain_types.{SignedIntentionT}
 use types.{Vk}
 use utils.{
   check_quorum_valid_sigs, check_valid_edd_sigs, dataify, must_find_key,
@@ -61,7 +62,7 @@ fn expect_item(constr: Data) {
   item
 }
 
-pub type Red {
+type Red {
   intentions: Data<List<SignedIntention>>,
   intent_user_counts: Data<List<ByteArray>>,
   change_output_offset: Int,
@@ -236,8 +237,16 @@ validator intent_spend {
   }
 }
 
+pub type RedT {
+  intentions: List<SignedIntentionT>,
+  intent_user_counts: List<ByteArray>,
+  change_output_offset: Int,
+  constraint_output_offset: Int,
+  constraint_redeemer_offset: Int,
+}
+
 validator intent_spend_types {
-  withdraw(_red: Red, _cred, _sc) {
+  withdraw(_red: RedT, _cred, _sc) {
     fail
   }
 
