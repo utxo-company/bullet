@@ -54,7 +54,7 @@ bytes = "b0153aa5ced5f435363b04ebb7a40a7b3ffc5d886008b914ad8a43f7"
 encoding = "hex"
 
 [config.preview.new_user_tx_hash]
-bytes = "d6ad0a886fa731d0c5571ec673214bd90f1eeabd5d5ed3f5e4c942e32e9ef6b7"
+bytes = "2522d244e4564ecdaae56cc28dd5f32b4fd5f176d944cbc889b205b92a865dbb"
 encoding = "hex"
 
 [config.preview.one_shot_tx_hash]

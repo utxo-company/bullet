@@ -169,6 +169,7 @@ fn value_compare(
     let input_lace, input_val <- input_value
     let output_lace, output_val <- output_value
     let leaving_lace, leaving_val <- assets_gone
+
     and {
       input_lace <= output_lace + leaving_lace,
       // We use input_val as the anchor to ensure no funny business with outputs or value_leaving
@@ -282,9 +283,9 @@ pub fn fold_intent_counts(
       // TODO: optimize
       // third part: validate user constraints for the popped off intention
       expect
-        (constraints
+        constraints
           |> builtin.un_list_data
-          |> fold_constraints(None, constraint_validator))?
+          |> fold_constraints(None, constraint_validator)
 
       // Not worried about negative values since
       // this gets added to outputs instead of subtracted from inputs
@@ -328,7 +329,7 @@ pub fn fold_intent_counts(
               // Basically a user would produce an intention plus a ZK-proof and the sequencer
               // would fold all the ZK-proofs into a single proof that checks all intentions that were
               // included in the tx were properly signed. All without revealing the users signing or verifying key.
-              expect must_have_key(withdrawals, sc)?
+              expect must_have_key(withdrawals, sc)
 
               fn(_a, _b, _c, _d) { True }
             }
@@ -591,9 +592,9 @@ fn fold_intents(
     } = signed_intent
 
     expect
-      (constraints
+      constraints
         |> builtin.un_list_data
-        |> fold_constraints(None, constraint_validator))?
+        |> fold_constraints(None, constraint_validator)
 
     expect validate_signatures(prefix, intent, postfix, signatures)
 
@@ -719,7 +720,7 @@ fn validate_out_nonce(
 
   and {
     dataify(expected_nft) == dataify(nft_value),
-    datum == InlineDatum(last_nonce),
+    datum == InlineDatum(last_nonce + 1),
     nonce_address == address,
   }
 }

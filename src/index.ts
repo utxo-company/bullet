@@ -500,6 +500,8 @@ async function intentSpend(lucid: LucidEvolution) {
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 3));
 
+  const utxoNonce = await lucid.utxosAt(bulletNonceAddress);
+
   const refUserState = await lucid
     .utxosAt(bulletAddress)
     .then((l) => l.filter((u) => u.outputIndex === 0));
@@ -538,7 +540,7 @@ async function intentSpend(lucid: LucidEvolution) {
 
   console.log("Here3");
 
-  let miniTx = await lucid
+  const miniTx = await lucid
     .newTx()
     .collectFrom([
       {
@@ -561,9 +563,23 @@ async function intentSpend(lucid: LucidEvolution) {
     )
     .complete({ coinSelection: false, includeLeftoverLovelaceAsFee: true });
 
-  console.log("Here3");
+  const output = miniTx.toTransaction().body().outputs().get(0);
 
-  const miniTxBytes = miniTx.toCBOR();
+  output.set_amount(CML.Value.from_coin(0n));
+
+  const outputs = CML.TransactionOutputList.new();
+
+  outputs.add(output);
+
+  const miniTxCompress = lucid.fromTx(
+    CML.Transaction.new(
+      CML.TransactionBody.new(CML.TransactionInputList.new(), outputs, 0n),
+      CML.TransactionWitnessSet.new(),
+      true,
+    ).to_cbor_hex(),
+  );
+
+  const miniTxBytes = miniTxCompress.toCBOR();
 
   console.log(miniTxBytes);
 
@@ -572,7 +588,7 @@ async function intentSpend(lucid: LucidEvolution) {
   const postfix = parts[1];
 
   console.log("Here4");
-  const signature = (await miniTx.sign.withWallet().complete())
+  const signature = (await miniTxCompress.sign.withWallet().complete())
     .toTransaction()
     .witness_set()
     .vkeywitnesses()!
@@ -602,18 +618,28 @@ async function intentSpend(lucid: LucidEvolution) {
     .newTx()
     .readFrom(refUserState)
     .readFrom(refGlobalState)
-    .collectFrom(utxo, Data.void())
+    .collectFrom([...utxo, ...utxoNonce], Data.void())
     .withdraw(proxyRewardAddress, 0n, Data.to("Intention", ProxyRedeemerType))
     .withdraw(
       intentAuthRewardAddress,
       0n,
       Data.to(intentSpendRedeemer, IntentionRedeemerType),
     )
-    .pay.ToAddress(randomAccount.address, { lovelace: 5000000n })
+    .pay.ToAddress(randomAccount.address, { lovelace: 5000000n - 1000000n })
+    .pay.ToContract(
+      bulletNonceAddress,
+      { kind: "inline", value: Data.to(2n) },
+      {
+        [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n,
+      },
+    )
     .attach.SpendingValidator(bulletScript)
     .attach.WithdrawalValidator(proxyScript)
     .attach.WithdrawalValidator(intentAuthScript)
+    .attach.SpendingValidator(bulletNonceScript)
     .complete({ changeAddress: bulletAddress });
+
+  console.log(intentSpendTx.toCBOR());
 
   const intentSpendTxHash = await intentSpendTx.sign
     .withWallet()
@@ -622,7 +648,7 @@ async function intentSpend(lucid: LucidEvolution) {
 
   await lucid.awaitTx(intentSpendTxHash);
 
-  console.log("Done HotSpend");
+  console.log("Done IntentSpend");
 }
 
 setupBullet()
