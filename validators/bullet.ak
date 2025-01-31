@@ -57,56 +57,8 @@ validator stake_bullet {
   else(sc: ScriptContext) {
     let ScriptContext { transaction: tx, info, redeemer } = sc
 
-    let cred, return_early <-
-      fn(callback) {
-        when info is {
-          Withdrawing(cred) -> callback(dataify(cred), False)
-          // The first seven certificates have the certificate credential as the first field
-          //  RegisterCredential {
-          //   credential: Credential, ..
-          // }
-          // UnregisterCredential {
-          //   credential: Credential, ..
-          // }
-          // DelegateCredential { credential: Credential, .. }
-          // RegisterAndDelegateCredential {
-          //   credential: Credential, ..
-          // }
-          // RegisterDelegateRepresentative {
-          //   delegate_representative: Credential, ..
-          // }
-          // UpdateDelegateRepresentative { delegate_representative: Credential }
-          // UnregisterDelegateRepresentative {
-          //   delegate_representative: Credential, ..
-          // }
-          Publishing { certificate, .. } -> {
-            expect [cred, ..] = builtin.unconstr_fields(certificate)
-
-            let index = builtin.unconstr_index(certificate)
-
-            expect index < 7
-
-            callback(cred, index == 0)
-          }
-          // pub type Voter {
-          //   ConstitutionalCommitteeMember(Credential)
-          //   DelegateRepresentative(Credential)
-          //   StakePool(VerificationKeyHash)
-          // }
-          Voting(voter) -> {
-            expect [cred, ..] = builtin.unconstr_fields(voter)
-
-            expect builtin.unconstr_index(voter) < 2
-
-            callback(cred, False)
-          }
-          _ -> fail
-        }
-      }
-
-    or {
-      return_early,
-      {
+    let validate =
+      fn(cred: Data) {
         let Transaction {
           inputs,
           outputs,
@@ -240,7 +192,55 @@ validator stake_bullet {
         } else {
           check_for_stake_proxy(redeemers, cred)
         }
-      },
+      }
+
+    when info is {
+      Withdrawing(cred) -> validate(cred)
+      // The first seven certificates have the certificate credential as the first field
+      //  RegisterCredential {
+      //   credential: Credential, ..
+      // }
+      // UnregisterCredential {
+      //   credential: Credential, ..
+      // }
+      // DelegateCredential { credential: Credential, .. }
+      // RegisterAndDelegateCredential {
+      //   credential: Credential, ..
+      // }
+      // RegisterDelegateRepresentative {
+      //   delegate_representative: Credential, ..
+      // }
+      // UpdateDelegateRepresentative { delegate_representative: Credential }
+      // UnregisterDelegateRepresentative {
+      //   delegate_representative: Credential, ..
+      // }
+      Publishing { certificate, .. } -> {
+        expect [cred, ..] = builtin.unconstr_fields(certificate)
+
+        let index = builtin.unconstr_index(certificate)
+
+        or {
+          index == 0,
+          {
+            expect index < 7
+
+            validate(cred)
+          },
+        }
+      }
+      // pub type Voter {
+      //   ConstitutionalCommitteeMember(Credential)
+      //   DelegateRepresentative(Credential)
+      //   StakePool(VerificationKeyHash)
+      // }
+      Voting(voter) -> {
+        expect [cred, ..] = builtin.unconstr_fields(voter)
+
+        expect builtin.unconstr_index(voter) < 2
+
+        validate(cred)
+      }
+      _ -> fail
     }
   }
 }
