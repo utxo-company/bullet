@@ -120,8 +120,8 @@ validator stake_bullet {
             ]
 
           expect (hot_sigs, cold_sigs): (
-            List<Data<Signature>>,
-            List<Data<Signature>>,
+            Data<List<Signature>>,
+            Data<List<Signature>>,
           ) = sig_datum
 
           expect AccountState { hot_cred, cold_cred } = datum
@@ -142,7 +142,7 @@ validator stake_bullet {
               and {
                 check_all_valid_vk_sigs(
                   other_keys |> builtin.un_list_data,
-                  hot_sigs,
+                  hot_sigs |> builtin.un_list_data,
                   one_shot_message,
                 )?,
                 check_all_tx_observed_and_hashes(
@@ -164,7 +164,7 @@ validator stake_bullet {
               and {
                 check_all_valid_vk_sigs(
                   other_keys |> builtin.un_list_data,
-                  cold_sigs,
+                  cold_sigs |> builtin.un_list_data,
                   one_shot_message,
                 )?,
                 check_all_tx_observed_and_hashes(

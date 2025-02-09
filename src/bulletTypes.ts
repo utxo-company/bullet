@@ -9,7 +9,7 @@ export const SchnorrSchema = Data.Object({
   Schnorr: Data.Tuple([Data.Bytes({ minLength: 32, maxLength: 32 })]),
 });
 
-export const VkSchema = Data.Enum([SecpSchema, SchnorrSchema]);
+export const VkSchema = Data.Enum([SchnorrSchema, SecpSchema]);
 
 export const VerificationSchema = Data.Object({
   Verification: Data.Object({

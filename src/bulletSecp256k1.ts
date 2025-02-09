@@ -2,8 +2,10 @@ import {
   CML,
   credentialToAddress,
   Data,
+  datumToHash,
   Emulator,
   EmulatorAccount,
+  fromText,
   generateEmulatorAccount,
   getAddressDetails,
   Lucid,
@@ -11,6 +13,8 @@ import {
   paymentCredentialOf,
   toHex,
   toPublicKey,
+  utxoToTransactionInput,
+  utxoToTransactionOutput,
 } from "@lucid-evolution/lucid";
 import {
   bulletAddress,
@@ -54,6 +58,8 @@ import {
   StakeBulletRedeemerType,
 } from "./bulletTypes";
 import { IntentionRedeemerType, IntentType } from "./intentTypes";
+import { OutputRefType } from "./otherTypes";
+import { CBORArray } from "@emurgo/cardano-message-signing-nodejs";
 
 export async function setupBulletSecp() {
   // Initialize Lucid with Koios provider
@@ -110,6 +116,13 @@ export async function setupBulletSecp() {
   // Needed to parameterize the aiken.toml file
   console.log("Parameterize aiken.toml file with: ", globalSetupTxHash);
 
+  const message: OutputRefType = { txId: globalSetupTxHash, outputIndex: 1n };
+
+  console.log(
+    "Message to sign is ",
+    fromText("Bullet") + Data.to(message, OutputRefType),
+  );
+
   const registerTx = await lucid
     .newTx()
     .collectFrom([(await lucid.utxosAt(initAccount.address))[1]])
@@ -147,7 +160,7 @@ export async function setupBulletSecp() {
           other_keys: [
             {
               Secp: [
-                "027356a58fec88dcbcc1225406c0065cac4c58a255b84485a6e03c14ee7bc222f4",
+                "021e060aa4a76b65c6508d79e6d67770ff5126d733a34e00405b11b70d0783c875",
               ],
             },
           ],
@@ -165,7 +178,12 @@ export async function setupBulletSecp() {
     },
   };
 
-  const sigDatum: SigsDatumType = [[], []];
+  const sigDatum: SigsDatumType = [
+    [
+      "94638f274a462d413e45ba550d21dfc7b1a3d745c5a2975f09e6985c24d3287112df3630356ce559b4aa4cb09bbe912b24add6496428eb1d911613e99042692c",
+    ],
+    [],
+  ];
 
   const newUserTx = await lucid
     .newTx()

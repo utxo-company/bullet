@@ -305,10 +305,12 @@ pub fn check_all_valid_vk_sigs(
         ) && check_all_valid_vk_sigs(rest, others, message)
       } else {
         expect Secp(vk) = vk
-        (
-          vk
-            |> verify_ecdsa_signature(message, sig |> builtin.un_b_data)
-        ) && check_all_valid_vk_sigs(rest, others, message)
+        (vk
+          |> verify_ecdsa_signature(message, sig |> builtin.un_b_data))? && check_all_valid_vk_sigs(
+          rest,
+          others,
+          message,
+        )
       }
     }
   }

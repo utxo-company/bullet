@@ -18,6 +18,9 @@ export const OutputRefSchema = Data.Object({
   outputIndex: Data.Integer({ minimum: 0 }),
 });
 
+export type OutputRefType = Data.Static<typeof OutputRefSchema>;
+export const OutputRefType = OutputRefSchema as unknown as OutputRefType;
+
 // pub type ScriptPurpose {
 //   /// For scripts executed as minting/burning policies, to insert
 //   /// or remove assets from circulation. It's parameterized by the identifier

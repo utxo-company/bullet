@@ -7,6 +7,8 @@ import {
   walletSpend,
 } from "./bulletEdd25519";
 
+import { setupBulletSecp } from "./bulletSecp256k1";
+
 setupBullet()
   .then((l) => hotSpend(l))
   .catch(console.error);
@@ -26,3 +28,5 @@ setupBullet()
 setupBullet()
   .then((l) => intentSpend(l))
   .catch(console.error);
+
+setupBulletSecp().catch(console.error);
