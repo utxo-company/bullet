@@ -238,7 +238,7 @@ validator intent_spend {
 }
 
 pub type RedT {
-  intentions: List<SignedIntentionT>,
+  intentions: List<Data<SignedIntentionT>>,
   intent_user_counts: List<ByteArray>,
   change_output_offset: Int,
   constraint_output_offset: Int,
