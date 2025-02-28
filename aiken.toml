@@ -33,24 +33,24 @@ one_shot_mint_hash = "the_best_mint_ever"
 namespace = "Bullet"
 
 [config.preview]
-new_user_output_index = 1
+new_user_output_index = 21
 one_shot_output_index = 0
 namespace = "Bullet"
 
 [config.preview.bullet_hash]
-bytes = "3e8b3d0bda81efcd1ce86d17b7764e55551cec6783f90bbc31069d69"
+bytes = "ab2426d61eb0da0589670a308d5ce99bf2f0dcdb32257cdb7cbf333f"
 encoding = "hex"
 
 [config.preview.nonce_bullet_hash]
-bytes = "37d20d7f8ff4bc0cf3bfae904ec92ff8d306bc964be0d94767b3cdc4"
+bytes = "2397463cdf1c6839faa69c50d075ef03df312b7e450aefd417e193d3"
 encoding = "hex"
 
 [config.preview.proxy_hash]
-bytes = "b04621841bec49b38d231d3edb83d09dd385a81903927e467185f101"
+bytes = "e06e3d21a549bb46a8560fe929ffe7d1ea964b92b86d7ed16ea4f3a7"
 encoding = "hex"
 
 [config.preview.stake_proxy_hash]
-bytes = "d86bb152b638bf63db6d44aee0c3ff1818e13949cc4130ad5d459d57"
+bytes = "8c0d09fc8234a275398b9eed39a40f303901ff9d41dbe7c09b6005fd"
 encoding = "hex"
 
 [config.preview.new_user_tx_hash]
@@ -58,9 +58,9 @@ bytes = "0788cbca89f1a7442f0ed538d5d30ffee1014d367c1bbba4b13305b7bd8a36b7"
 encoding = "hex"
 
 [config.preview.one_shot_tx_hash]
-bytes = "0000000000000000000000000000000000000000000000000000000000000000"
+bytes = "89618f8648db0e830dd3b5b6631c46b71360ccd9b64b9c9510486284cf44ba78"
 encoding = "hex"
 
 [config.preview.one_shot_mint_hash]
-bytes = "a704753ea2f639e46909d18cb666e0fdc5e602f9a353e6b94fb1d29b"
+bytes = "28ac2d43665f9c5b46908532fd27783e0e45039415664d90b3043743"
 encoding = "hex"

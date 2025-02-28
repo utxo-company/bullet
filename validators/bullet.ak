@@ -196,7 +196,8 @@ validator stake_bullet {
 
     when info is {
       Withdrawing(cred) -> validate(cred)
-      // The first seven certificates have the certificate credential as the first field
+
+      // the first seven certificates have the certificate credential as the first field
       //  RegisterCredential {
       //   credential: Credential, ..
       // }

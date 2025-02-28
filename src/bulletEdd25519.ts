@@ -20,6 +20,7 @@ import {
   bulletRewardAddress,
   bulletScript,
   bulletStakeHash,
+  bulletValidator,
   changeAuthHash,
   changeAuthRewardAddress,
   changeAuthScript,
@@ -783,4 +784,196 @@ export async function intentSpend2(lucid: LucidEvolution) {
   await lucid.awaitTx(intentSpendTxHash);
 
   console.log("Done IntentSpend");
+}
+
+export async function setupBulletMainnet() {
+  // Initialize Lucid with Koios provider
+  //
+  // console.log(
+  //   await generateEmulatorAccountFromPrivateKey({ lovelace: 1000000000n }),
+  // );
+
+  const emulator = new Emulator([]);
+
+  // emulator.ledger = {
+  //   ["89618f8648db0e830dd3b5b6631c46b71360ccd9b64b9c9510486284cf44ba7800"]: {
+  //     spent: false,
+  //     utxo: {
+  //       address:
+  //         "addr1q9venhxereqm8exzhgphagas8kuguwa9vev4zc086ulg275tacf8lywukau5xvyy2z9dt6ttul4487htpgjruq0rynhslp3xgv",
+  //       assets: { ["lovelace"]: 2617582313n },
+  //       outputIndex: 0,
+  //       txHash:
+  //         "89618f8648db0e830dd3b5b6631c46b71360ccd9b64b9c9510486284cf44ba78",
+  //     },
+  //   },
+  // };
+
+  const lucid = await Lucid(emulator, "Mainnet");
+
+  lucid.selectWallet.fromAddress(
+    "addr1q9venhxereqm8exzhgphagas8kuguwa9vev4zc086ulg275tacf8lywukau5xvyy2z9dt6ttul4487htpgjruq0rynhslp3xgv",
+    [
+      {
+        address:
+          "addr1q9venhxereqm8exzhgphagas8kuguwa9vev4zc086ulg275tacf8lywukau5xvyy2z9dt6ttul4487htpgjruq0rynhslp3xgv",
+        assets: { ["lovelace"]: 2545441528n },
+        txHash:
+          "ba4b9fb110ef328f84f080f277af89e3c40a8bc3aa64eb1605e445f3b7f293b7",
+        outputIndex: 2,
+      },
+    ],
+  );
+
+  console.log("Time for the Global Setup of Bullet.");
+
+  // const oneShotDatum: ProxyStateType = {
+  //   hotAuthContract: { Script: [hotAuthHash] },
+  //   intentAuthContract: { Script: [intentAuthHash] },
+  //   walletAuthContract: { Script: [walletAuthHash] },
+  //   coldAuthContract: { Script: [coldAuthHash] },
+  //   changeAuthContract: { Script: [changeAuthHash] },
+  //   deleteAuthContract: { Script: [deleteHash] },
+  // };
+
+  // const globalSetupTx = await lucid
+  //   .newTx()
+  //   .mintAssets({ [oneShotMintPolicy]: 1n }, Data.void())
+  //   .pay.ToContract(
+  //     proxyAddress,
+  //     {
+  //       kind: "inline",
+  //       value: Data.to(oneShotDatum, ProxyStateType),
+  //     },
+  //     { [oneShotMintPolicy]: 1n },
+  //   )
+  //   .pay.ToAddress(await lucid.wallet().address(), { lovelace: 70000000n })
+  //   .attach.MintingPolicy(oneShotMintScript)
+  //   .complete();
+
+  // const globalSetupTxHash = await globalSetupTx.sign
+  //   .withWallet()
+  //   .complete()
+  //   .then((t) => t.submit());
+
+  // await lucid.awaitTx(globalSetupTxHash);
+
+  // Needed to parameterize the aiken.toml file
+  // console.log("Parameterize aiken.toml file with: ", globalSetupTxHash);
+
+  const myAddress = await lucid.wallet().address();
+
+  const registerTx = await lucid
+    .newTx()
+    .register.Stake(bulletRewardAddress)
+    .register.Stake(proxyRewardAddress)
+    .register.Stake(hotAuthRewardAddress)
+    .register.Stake(walletAuthRewardAddress)
+    .register.Stake(coldAuthRewardAddress)
+    .register.Stake(changeAuthRewardAddress)
+    .register.Stake(intentAuthRewardAddress)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, bulletScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, proxyScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, hotAuthScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, walletAuthScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, coldAuthScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, changeAuthScript)
+    .pay.ToAddressWithData(myAddress, undefined, undefined, intentAuthScript)
+    .complete();
+
+  console.log("CBOR IS ", registerTx.toCBOR());
+
+  // const registerTxHash = await registerTx.sign
+  //   .withWallet()
+  //   .complete()
+  //   .then((t) => t.submit());
+
+  // await lucid.awaitTx(registerTxHash);
+
+  // const stakeRed: StakeBulletRedeemerType = "Setup";
+
+  // const userPublicKey = toHex(
+  //   CML.PublicKey.from_bech32(
+  //     toPublicKey(initAccount.privateKey),
+  //   ).to_raw_bytes(),
+  // );
+
+  // const userPayCred = paymentCredentialOf(initAccount.address);
+
+  // const controlDatum: BulletDatumType = {
+  //   Control: {
+  //     hotCred: {
+  //       Verification: {
+  //         ed25519_keys: new Map([[userPayCred.hash, userPublicKey]]),
+  //         other_keys: [],
+  //         hot_quorum: 1n,
+  //         wallet_quorum: 1n,
+  //       },
+  //     },
+
+  //     coldCred: {
+  //       ColdVerification: {
+  //         ed25519_keys: new Map([[userPayCred.hash, userPublicKey]]),
+  //         other_keys: [],
+  //       },
+  //     },
+  //   },
+  // };
+
+  // const sigDatum: SigsDatumType = [[], []];
+
+  // const newUserTx = await lucid
+  //   .newTx()
+  //   .collectFrom(await lucid.utxosAt(initAccount.address))
+  //   .mintAssets(
+  //     {
+  //       [bulletMintPolicy + bulletStakeHash]: 1n,
+  //       [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n,
+  //     },
+  //     Data.void(),
+  //   )
+  //   .withdraw(
+  //     bulletRewardAddress,
+  //     0n,
+  //     Data.to(stakeRed, StakeBulletRedeemerType),
+  //   )
+  //   .pay.ToContract(
+  //     bulletAddress,
+  //     { kind: "inline", value: Data.to(controlDatum, BulletDatumType) },
+  //     { [bulletMintPolicy + bulletStakeHash]: 1n },
+  //   )
+  //   .pay.ToContract(
+  //     bulletNonceAddress,
+  //     {
+  //       kind: "inline",
+  //       value: Data.to(1n),
+  //     },
+  //     { [bulletMintPolicy + "ffffffff" + bulletStakeHash]: 1n },
+  //   )
+  //   .pay.ToAddressWithData(initAccount.address, {
+  //     kind: "inline",
+  //     value: Data.to(sigDatum, SigsDatumType),
+  //   })
+  //   // deposit to bullet no datum
+  //   .pay.ToContract(bulletAddress, undefined, { lovelace: 50000000n })
+  //   .pay.ToContract(
+  //     bulletAddress,
+  //     { kind: "inline", value: Data.to("Vault", BulletDatumType) },
+  //     { lovelace: 54000000n },
+  //   )
+  //   .addSigner(initAccount.address)
+  //   .attach.MintingPolicy(bulletScript)
+  //   .attach.WithdrawalValidator(stakeBulletScript)
+  //   .complete();
+
+  // const newUserTxHash = await newUserTx.sign
+  //   .withWallet()
+  //   .complete()
+  //   .then((t) => t.submit());
+
+  // await lucid.awaitTx(newUserTxHash);
+
+  // console.log("Done Setup");
+
+  // return lucid;
 }
