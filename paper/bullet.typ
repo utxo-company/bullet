@@ -4,15 +4,14 @@
   title: "Intention Is All You Need",
   authors: (
     (
-      name: "Satoshi Nakamoto",
+      name: "Kasey White",
       affiliation: "Cardano Foundation",
-      email: "satoshi@example.org",
-      corresponding: true,
+      email: "byword-hitters.9h@icloud.com", 
     ),
     (
-      name: "Vitalik Buterin",
+      name: "Lucas Rosa",
       affiliation: "Input Output Global",
-      email: "vitalik@example.org",
+      email: "todo",
     ),
   ),
   abstract: [
