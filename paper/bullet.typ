@@ -84,7 +84,7 @@ Bullet implements a sophisticated key management system through hot and cold mul
 - Normal spend transactions (e.g., sending assets to friends)
 - Signing intentions for DeFi interactions
 - Actions related to staking or voting in blockchain governance
-- Limited access to Vault UTxOs (requiring the higher wallet quorum threshold of signatures)
+- Limited access to Vault UTxOs (requiring a higher quorum threshold of signatures)
 
 *Cold Keys* offer enhanced security for critical operations:
 - Access to spending when hot keys are unavailable (e.g., offline servers) or lost
@@ -141,9 +141,9 @@ Bullet implements intentions through a sophisticated validation engine with seve
 
 This flexible constraint system enables complex transaction patterns while maintaining security and predictability. The approach allows transaction builders (who may not be the original signers) to include user intentions in their transactions, opening possibilities for third-party transaction construction and fee markets.
 
-=== Temp Value System
+=== Temporary Value System
 
-The temp_val system is a simple yet powerful mechanism in Bullet's intention validation that passes data between constraints. It works as follows:
+The temporary value system is a simple yet powerful mechanism in Bullet's intention validation that passes data between constraints. It works as follows:
 
 - Starts as `None` and can be set by certain constraints (input, reference input, redeemer validation)
 - Subsequent constraints can use this value for validation decisions or output construction
