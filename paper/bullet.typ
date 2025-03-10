@@ -156,7 +156,7 @@ The signing process works as follows:
 3. The resulting hash is signed by the required quorum of keys
 4. The final transaction includes all original intention data, the signatures, and the user's address
 
-At transaction execution, the validator compares each constraint in the intention against the actual transaction structure, rejecting the transaction if any constraint is not met. This ensures no one can use a signed intention to perform actions beyond what the user explicitly authorized.
+At transaction execution, the validator compares each constraint in the intention against the actual transaction structure, rejecting the transaction if any constraint is not met. This validation step prevents any attempt to use signed intentions for operations that exceed their authorized scope.
 
 === Cost Model Maybe (Stretch Goal)?
 
@@ -168,17 +168,17 @@ Bullet's intention-based approach solves key challenges in DeFi applications on 
 == Orderbook DEX
 
 Traditional orderbook DEXs on UTxO blockchains face significant limitations:
-- Users pay transaction fees for placing orders even if they're never executed
+- Users pay transaction fees for placing orders upfront, even if they're never executed
 - Order contention requires signing new transactions when targeted orders are already taken
 - Market responsiveness is limited by blockchain confirmation times
 
 Bullet addresses these issues through its intention mechanism:
-- Users create orders via intentions but only pay when orders execute ("pay-on-execution")
+- Users create orders via intentions and only pay when orders execute ("pay-on-execution")
 - Multiple orders can be created rapidly to follow market movements
 - A single signed intention remains valid regardless of UTxO contention
 - The fee is satisfied from any available UTxOs, eliminating the need for re-signing when transactions fail
 
-This approach creates a more efficient orderbook experience with reduced costs and improved market responsiveness for traders.
+This approach creates a more efficient orderbook experience by removing upfront costs for unexecuted orders, reducing overall transaction fees, and improving market responsiveness for traders.
 
 == Atomic Swap
 
@@ -187,7 +187,8 @@ Bullet enhances atomic swap capabilities by allowing multiple intentions to be c
 - Multiple parties can participate in complex exchanges without requiring direct coordination
 - All-or-nothing execution ensures transactions either complete fully or fail completely
 - New use cases like atomic flash loans become possible, where borrowed value must be returned within the same transaction
-- Risk is minimized as failure results in no value movement
+- Similar to other Bullet operations, users only pay fees when the transaction is successfully included on the blockchain, not when loan attempts fail
+- Risk is minimized as failure results in no value movement or fee payment
 
 This creates more robust peer-to-peer trading possibilities while maintaining the security guarantees of atomic execution.
 
@@ -200,22 +201,9 @@ When accessing global state in UTxO blockchains, contention creates significant 
 - Sequencers, better equipped for rapid signing, handle contention for global state UTxOs
 - Users experience reliable interaction regardless of underlying contention
 
+Sequencers are incentivized through fees included in the intentions themselves. These fees can be denominated in any token, allowing for flexible payment models. The cost for including an intention can be calculated in advance, creating predictable economics for both users and sequencers.
+
 This approach is particularly valuable for high-demand protocols where global state access (like liquidity pools or lending markets) creates bottlenecks in traditional UTxO designs.
-
-= Interoperability
-Bullet supports cross-chain key compatibility through multiple signature schemes to create a more accessible user experience.
-
-To enable a "drop-in experience" for users with existing blockchain wallets, Bullet allows for Secp256k1 and Schnorr signature schemes alongside the native Ed25519 keys used in Cardano. This allows private keys commonly derived for either Secp256k1 (used in Bitcoin, Ethereum, and many EVM chains) or Schnorr to be used in Bullet without requiring users to generate new keys.
-
-The implementation uses an alternative message signing approach necessitated by the constraints of the UTxO model. Since providing external signatures to a transaction would alter the transaction hash itself, Bullet derives the message to be signed from the script context available during on-chain execution:
-
-1. The on-chain Plutus script accesses its execution context
-2. Inputs and outputs from this context are serialized 
-3. This serialized data is hashed to create a consistent message
-4. The resulting message can be signed by any supported key type
-5. The signature can be provided to the transaction without changing the message hash
-
-This technical approach is the only viable method for supporting these additional signature schemes within the constraints of the system. While broader protocol-level interoperability features are not currently implemented, wallet integrations are in development to provide seamless experiences across different blockchain ecosystems.
 
 = Conclusion
 
