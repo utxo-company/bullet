@@ -8,14 +8,9 @@
       affiliation: "Cardano Foundation",
       email: "byword-hitters.9h@icloud.com", 
     ),
-    (
-      name: "Lucas Rosa",
-      affiliation: "Input Output Global",
-      email: "todo",
-    ),
   ),
   abstract: [
-    This paper introduces a novel approach to account abstraction on UTxO ledger based blockchains. We present a system where users sign intentions—fragments of desired transaction elements—rather than complete transactions. Our smart contracts abstract ownership of an address to a quorum of keys stored in a UTxO while validating that user intentions are fulfilled in the final transaction. This approach provides increased security through multi-signature capabilities, simplifies user interaction with blockchain assets, and enables new wallet features for more efficient DeFi applications including orderbook exchanges, atomic swaps, and sequencer services for interactions with global state.
+    This paper introduces a novel approach to account abstraction on UTxO ledger based blockchains that addresses significant user and developer experience challenges in complex DeFi applications. We present a system where users sign intentions—fragments of desired transaction elements—rather than complete transactions. Unlike traditional UTxO systems where addresses are derived directly from keys, our smart contracts store key information in on-chain state, enabling a quorum of keys to control an address while validating that user intentions are fulfilled in the final transaction. This approach provides increased security through multi-signature capabilities, simplifies user interaction with blockchain assets, and enables new DeFi applications that were previously impractical on UTxO systems, such as efficient orderbook exchanges, atomic swaps, and sequencer services for interactions with global state.
   ],
   keywords: ("Cardano", "UTxO", "Account Abstraction", "Blockchain"), 
 )
@@ -24,60 +19,60 @@
 
 Blockchain users often tie airdrops, protocol rewards, stake control, asset ownership, and user identity to a single address. In traditional UTxO-based blockchains like Cardano and Bitcoin, these addresses are typically formed from a single key, creating potential for significant security vulnerabilities. If that key is lost or stolen, all associated funds are compromised. Additionally, interacting with malicious sites can lead to complete fund drainage through deceptive transaction signing requests.
 
-This paper introduces Bullet, a novel approach to account abstraction on UTxO-based blockchains that fundamentally transforms how users interact with their assets. Rather than managing individual UTxOs and signing complete transactions, Bullet enables users to focus solely on the value leaving their account and the specific actions they want to execute.
+This paper introduces Bullet, the first comprehensive approach to account abstraction on UTxO-based blockchains that fundamentally transforms how users interact with their assets. Rather than managing individual UTxOs and signing complete transactions, users sign intention messages that specify only fragments of what they want included in a transaction and the fee they're willing to pay.
 
-At the core of our approach is the concept of intention validation. Instead of signing entire transactions with specific inputs and outputs, users sign intention messages that specify only fragments of what they want included in a transaction and the fee they're willing to pay. Smart contracts then validate that these intentions are properly fulfilled when the transaction is executed, regardless of who builds the final transaction.
-
-Bullet provides several key advantages over traditional UTxO management:
-- Enhanced security through multi-signature support with customizable quorum requirements
-- Flexible key management with different types of signing keys (cold, hot, and wallet-specific)
-- Improved user experience by abstracting away the complexity of UTxO management
+Our technical contributions include:
+- A novel intention validation scheme specifically designed for Cardano's execution model
+- Multi-signature support with customizable quorum requirements using hot and cold keys
 - An account-centered approach that simplifies both wallet interfaces and DApp interactions
-- Protection mechanisms that shield assets from potential DeFi vulnerabilities
+- Fund shielding through an innovative vault mechanism that protects assets from DeFi vulnerabilities
 
-Our work represents a significant step toward combining the security benefits of UTxO-based systems with the usability advantages typically associated with account-based blockchains like Ethereum, all while introducing new capabilities through the intention validation mechanism.
+Bullet has been fully implemented and is publicly available on GitHub. Our work combines the security benefits of UTxO-based systems with the usability advantages typically associated with account-based blockchains, while introducing new capabilities through the intention validation mechanism.
 
 
 = Background
 
-Account abstraction seeks to enhance blockchain usability by separating ownership validation from transaction logic, simplifying user interactions while maintaining security. While account-based blockchains have established standards for account abstraction, UTxO-based blockchains lack comparable solutions despite their widespread adoption.
+Account abstraction fundamentally aims to separate blockchain address ownership from transaction execution logic. This separation enhances user experience by providing flexibility in how transactions are authorized and executed, while maintaining security. In account-based blockchains like Ethereum, account abstraction has evolved through various standards (such as ERC-4337), enabling features like social recovery, sponsored transactions, and scheduled payments.
 
-== UTxO Model
+== UTxO Model Challenges for User Experience
 
-Cardano, Bitcoin, and other blockchains use a ledger model called UTxO (Unspent Transaction Output). Value transfers are written as a series of inputs (spent outputs) and outputs, each with a unique identifier. In this model, users sign complete transactions, verifying they control the inputs being spent.
+Cardano, Bitcoin, and other UTxO-based blockchains face unique challenges in implementing account abstraction due to their fundamental transaction model. In the UTxO (Unspent Transaction Output) model, blockchain state is represented as a collection of discrete outputs, each with a unique identifier. Transactions consume existing UTxOs as inputs and create new UTxOs as outputs.
 
-This design creates specific challenges for user experience and application development:
+This model creates specific challenges that account abstraction could address:
 
-1. Contention issues arise when multiple users attempt to interact with a UTxO representing global state. Since a UTxO must be unspent before inclusion in a transaction, users race to consume it, with only one succeeding while others' transactions fail.
+1. *Fragmented Value Storage*: Users must manage multiple UTxOs rather than a single account balance, complicating wallet interfaces and user experience.
 
-2. Failed transactions require users to sign entirely new transactions, creating poor user experiences in high-contention scenarios like decentralized exchanges (DEXs) where a liquidity pool might be represented by a single UTxO.
+2. *Global State Contention*: When multiple users attempt to interact with a UTxO representing global state (such as a DEX liquidity pool), only one can succeed while others' transactions fail, requiring users to sign entirely new transactions.
 
-3. Complex operations require careful construction of transaction inputs and outputs, placing significant burden on wallet implementations.
+3. *Complex Transaction Construction*: Applications requiring interaction with multiple UTxOs demand precise transaction construction with specific inputs and outputs, placing significant burden on wallet implementations.
 
-However, the UTxO model offers security advantages as transaction outcomes are explicitly defined in the transaction itself, rather than computed during execution as in account-based models.
+4. *Single-Key Security Risks*: Traditional UTxO addresses derived from single keys create security vulnerabilities where key compromise leads to total fund loss.
 
-== Intentions
+Despite these challenges, the UTxO model offers important security advantages: transaction outcomes are explicitly defined within the transaction itself rather than computed during execution. This provides deterministic results and makes certain types of attacks (like reentrancy) structurally impossible since all inputs and outputs are specified before validation.
 
-An intention is a signed message that contains a user's authorization to perform a specific action within a transaction. Unlike traditional UTxO transactions where users sign complete transactions with predetermined inputs and outputs, intentions specify only fragments of desired transaction elements.
+== Intentions as a Solution Approach
 
-The structure of an intention typically includes:
+To address these challenges while preserving UTxO security benefits, we introduce the concept of intentions. An intention is a signed message containing a user's authorization to perform a specific action within a transaction, without specifying the complete transaction structure.
+
+The basic structure of an intention includes:
 - The specific action to be performed
-- The fee the user is willing to pay for this action
+- The fee the user is willing to pay
 - The address responsible for paying the fee
-- The signature(s) of the address owner validating the intention
+- The signature(s) validating the intention
 
-This approach allows users to authorize specific actions without needing to construct or sign complete transactions. By validating intentions rather than complete transactions, we can maintain the security properties of UTxO models while addressing their usability limitations.
+This approach allows users to authorize specific actions without constructing entire transactions. The technical implementation details of how intentions are represented, validated, and integrated into the transaction flow will be covered in subsequent sections.
 
-We have developed a series of smart contracts that offers hot and cold multisignature schemes that are stored in an onchain state managed by the user. In addition, our solution introduces a vault mechanism to shield assets from usage in DeFi applications and from malicious wallet drainers."
+By shifting from transaction signing to intention signing, we create a foundation for account abstraction in UTxO blockchains, enabling improved user experiences while maintaining the security properties that make UTxO models valuable.
+
 = Bullet
 
-Bullet is a comprehensive system for account abstraction on UTxO-based blockchains implemented as a series of micro-validators. These validators are linked via a proxy contract to minimize execution costs for users. The architecture employs both direct validator parameterization (using validator hashes) and indirect linkage through global state in datums or token names, creating a flexible yet secure validation framework.
+Bullet is an account abstraction system for UTxO-based blockchains implemented as a series of micro-validators. This architecture distributes functionality across six main actions—hot spend, cold spend, vault spend, intention validation, credential changes, and account deletion—each implemented as a separate validator to minimize execution costs on Cardano. These validators are linked via a proxy contract that checks for the execution of the appropriate specialized contract based on the requested action.
 
-The system addresses key challenges of UTxO-based blockchains by allowing users to interact with their assets through intention signatures rather than complete transaction signing. This approach significantly improves user experience, particularly in high-contention scenarios like DeFi applications, while maintaining the security benefits of the UTxO model.
+The system enables users to interact with their assets through intention signatures rather than complete transaction signing, addressing the contention and UX issues in UTxO-based blockchains while maintaining their security properties.
 
 == Hot and Cold Multisig Credentials
 
-Bullet implements a sophisticated key management system through hot and cold multisignature credentials:
+Bullet implements key management through hot and cold multisignature credentials:
 
 *Hot Keys* provide flexibility for day-to-day operations:
 - Normal spend transactions (e.g., sending assets to friends)
@@ -89,41 +84,33 @@ Bullet implements a sophisticated key management system through hot and cold mul
 - Access to spending when hot keys are unavailable (e.g., offline servers) or lost
 - Authority to modify credential state, including updating both hot and cold key sets
 
-This dual-key approach allows users to balance convenience with security, implementing appropriate protection levels for different transaction types. The system supports multiple signature schemes including Schnorr, ECDSA, and Ed25519, providing compatibility across various wallet implementations and key management practices.
+The quorum threshold for hot keys and wallet operations is configurable by the user based on their security needs and can be modified through the change credentials action. For cold keys, the quorum is always equal to the total number of cold keys, ensuring maximum security for critical operations.
+
+The system supports multiple signature schemes including Schnorr, ECDSA, and Ed25519, providing compatibility across various wallet implementations and key management practices.
 
 === Signing a Transaction
-#lorem(45)
+When signing a transaction in Bullet, users follow a process similar to traditional UTxO transaction signing, but with support for multiple signatures. The transaction hash is generated and then signed by the required quorum of keys according to the transaction type (hot spend, vault spend, or cold spend). This multisignature capability enhances security while maintaining a familiar workflow for users.
+
+For recovery scenarios where a user loses access to some hot keys, the cold keys serve as a backup mechanism, allowing users to update their credential state with new hot keys through the change credentials action.
 
 == Fund Management
 
-Bullet introduces advanced fund management capabilities through its Vault mechanism. This feature allows users to designate specific UTxOs that require elevated security for spending:
+Bullet's Vault mechanism allows users to designate specific UTxOs that require elevated security for spending:
 
 - Vault UTxOs require either a greater quorum of hot key signatures or cold key authorization
-- This creates a clear separation between freely available funds and secured assets
+- This creates a separation between freely available funds and secured assets
 - Users can maintain a small portion of funds for normal spending or DeFi interactions while protecting the majority of their holdings
 - The mechanism helps protect against draining attacks or misuse by DApps
 
-As an additional benefit, this structure enables off-chain indexers to track how much value Bullet users allocate to DeFi applications versus secured storage, potentially serving as an indicator of DeFi ecosystem health.
+This structure enables off-chain indexers to track how much value Bullet users allocate to DeFi applications versus secured storage, potentially serving as an indicator of DeFi ecosystem health.
 
 For a user to specify a UTxO as a Vault UTxO, they simply need to create that UTxO with a Vault type datum from the Bullet Datum types.
 
 == Intentions in Bullet
 
-Intentions form the core innovation of Bullet, representing a paradigm shift in how transactions are authorized in UTxO-based systems. Unlike traditional transactions where users sign complete input-output structures, an intention is a signed message specifying:
+Intentions are the core innovation of Bullet, changing how transactions are authorized in UTxO-based systems. Unlike traditional transactions where users sign complete input-output structures, an intention is a signed message that specifies constraints the final transaction must satisfy.
 
-1. A fragment of desired transaction elements (constraints)
-2. The fee the user is willing to pay
-3. The address paying the fee
-4. Authentication signatures
-
-Bullet implements intentions through a sophisticated validation engine with several components:
-
-*Validation Flow*:
-- Analysis of redeemer data containing intention lists
-- Per-user intention processing including signature validation
-- Constraint system validation against transaction structure
-- Value movement tracking and verification
-- Final verification of intention completion
+Bullet validate these constraints through a validation engine with these components:
 
 *Constraint System*:
 - Output constraints: specifying address, value, datum, and reference requirements
@@ -133,26 +120,47 @@ Bullet implements intentions through a sophisticated validation engine with seve
 - Time bounds: enforcing valid time ranges
 - Contract Execution: enforcing the presence of contract executions in the transaction
 
+*Validation Flow*:
+- Analysis of redeemer data containing intention lists
+- Per-user intention processing including signature validation
+- Constraint system validation against transaction structure
+- Value movement tracking and verification
+- Final verification of intention completion
+
 *Execution Models*:
 - Sequential execution: using incrementing nonce values
-- Parallel processing: using UTXO references as nonces
+- Parallel processing: using UTXO inputs as nonces
 - Combined models supporting multiple users with different execution patterns
 
-This flexible constraint system enables complex transaction patterns while maintaining security and predictability. The approach allows transaction builders (who may not be the original signers) to include user intentions in their transactions, opening possibilities for third-party transaction construction and fee markets.
+The constraints are limited to simple equality checks (with the exception of time bounds) and don't support general inequality predicates like less than or greater than. To include more DeFi use cases, a temporary value system was added and is detailed below.
 
 === Temporary Value System
 
-The temporary value system is a simple yet powerful mechanism in Bullet's intention validation that passes data between constraints. It works as follows:
+The temporary value system passes data between constraints during intention validation:
 
 - Starts as `None` and can be set by certain constraints (input, reference input, redeemer validation)
 - Subsequent constraints can use this value for validation decisions or output construction
 - Once used, each constraint typically updates the temp_val for the next constraint
-- Enables data extraction from one part of a transaction to influence validation in another
 
-This creates a validation flow where information can be chained through multiple constraints, allowing for dynamic transaction structures without compromising security.
+This system allows intentions to reference dynamic values that aren't known at signing time, such as cryptocurrency prices from an oracle or wallet balances. For example, a swap intention could use a price obtained from an oracle contract execution rather than requiring a hardcoded value at signing time. This enables intentions to adapt to on-chain conditions without requiring users to sign new intentions.
 
 === Signing an intention
-#lorem(30)
+An intention in Bullet consists of specific data elements:
+1. A list of constraints (output requirements, input validation rules, etc.)
+2. The maximum fee the user is opting into
+3. A nonce to prevent replayability of signed intentions
+
+The signing process works as follows:
+1. These data elements are serialized into a byte array with appropriate wrapping for compatibility
+2. The byte array is hashed
+3. The resulting hash is signed by the required quorum of keys
+4. The final transaction includes all original intention data, the signatures, and the user's address
+
+At transaction execution, the validator compares each constraint in the intention against the actual transaction structure, rejecting the transaction if any constraint is not met. This ensures no one can use a signed intention to perform actions beyond what the user explicitly authorized.
+
+=== Cost Model Maybe (Stretch Goal)?
+
+#lorem(50)
 
 = Applications in DeFi
 Bullet's intention-based approach solves key challenges in DeFi applications on UTxO-based blockchains, enabling more efficient and user-friendly experiences across multiple use cases.
