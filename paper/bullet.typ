@@ -225,14 +225,15 @@ This approach is particularly valuable for high-demand protocols where global st
 
 = Conclusion
 
-This paper has introduced Bullet, a novel approach to account abstraction on UTxO-based blockchains that fundamentally transforms how users interact with digital assets. By implementing an intention-based validation system, we have demonstrated that the traditional limitations of UTxO models can be overcome while preserving their security benefits.
+This paper presented Bullet, a new approach to account abstraction for UTxO-based blockchains. By replacing transaction signing with intention signing, we've created a system that combines UTxO security with account-model convenience.
 
-The most significant contribution of our work is the paradigm shift from transaction building to intention building. Rather than requiring users to construct and sign complete transactions with precise input-output relationships, Bullet enables users to express only what they intend to accomplish, delegating transaction construction to builders who can optimize execution. This approach dramatically improves user experience, particularly in high-contention scenarios like DeFi applications.
+Our approach separates what users want to accomplish from how transactions are constructed. This separation addresses several fundamental challenges in UTxO blockchains:
+- It eliminates the need to manage discrete UTxOs
+- It resolves contention issues when accessing global state
+- It enables flexible multi-key security policies
 
-Additionally, by separating keys from addresses and implementing user-controlled state, Bullet provides enhanced security through multisignature schemes and enables key rotation capabilities not previously available in UTxO systems. The vault mechanism further protects user assets from potential vulnerabilities, creating a more robust security model.
+The applications we've outlined demonstrate real solutions to existing problems rather than theoretical improvements. Pay-on-execution for orderbooks, efficient atomic swaps, and contention-free access to global state all derive directly from the intention-based architecture.
 
-The applications in DeFi demonstrate that this approach addresses critical pain points in existing implementations, from reducing costs in orderbook exchanges to eliminating contention issues when accessing global state. The ability to combine multiple intentions into atomic transactions opens new possibilities for complex financial operations while maintaining deterministic execution guarantees.
+Integration with DexHunter is in progress, with plans for Lace integration soon. These implementations will provide practical validation of the approach.
 
-Integrations with existing ecosystem applications like DexHunter are currently in progress, which will provide real-world validation of these concepts. As adoption grows, we anticipate that the intention-based model will become a standard approach for blockchain interactions, bridging the usability gap between UTxO and account-based systems while introducing new capabilities that neither could achieve independently.
-
-By focusing on what users intend to accomplish rather than how transactions are structured, Bullet represents a significant step toward more intuitive, secure, and efficient blockchain systems that can better serve both individual users and decentralized applications.
+Future work will focus on quantum resistance through script-executed quantum-resistant signature verification schemes.
