@@ -196,7 +196,7 @@ This creates more robust peer-to-peer trading possibilities while maintaining th
 = Interoperability
 Bullet supports cross-chain key compatibility through multiple signature schemes to create a more accessible user experience.
 
-To enable a "drop-in experience" for users with existing blockchain wallets, Bullet allows for Secp256k1 and Schnorr signature schemes alongside the native Ed25519 keys used in Cardano. This allows private keys commonly derived for either Secp256k1 (used in Bitcoin, Ethereum, and many EVM chains) or Schnorr to be used in Bullet without requiring users to generate new keys.
+To reduce friction for users with existing blockchain wallets, Bullet allows for Secp256k1 and Schnorr signature schemes alongside the native Ed25519 keys used in Cardano. This means users can interact with Cardano using the same private keys they already use for Bitcoin, Ethereum, and many EVM chains, eliminating the need to generate and manage separate keys for each blockchain ecosystem.
 
 The implementation uses an alternative message signing approach necessitated by the constraints of the UTxO model. Since providing external signatures to a transaction would alter the transaction hash itself, Bullet derives the message to be signed from the script context available during on-chain execution:
 
@@ -206,8 +206,9 @@ The implementation uses an alternative message signing approach necessitated by 
 4. The resulting message can be signed by any supported key type
 5. The signature can be provided to the transaction without changing the message hash
 
-This technical approach is the only viable method for supporting these additional signature schemes within the constraints of the system. While broader protocol-level interoperability features are not currently implemented, wallet integrations are in development to provide seamless experiences across different blockchain ecosystems.
+This approach represents a tradeoff: it enables cross-chain key compatibility but provides less control than traditional transaction signing since users sign only the inputs, outputs, and fees rather than the complete transaction hash including metadata.
 
+While broader protocol-level interoperability features are not currently implemented and specific wallet integrations are not yet in development, the key compatibility layer provides an important foundation for future cross-chain user experiences. When implemented in wallets, this would allow users to access and manage Cardano assets using the same wallet interface and keys they already use for other blockchains.
 
 == Sequencer Ordering
 
