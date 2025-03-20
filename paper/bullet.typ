@@ -23,7 +23,7 @@ This paper introduces Bullet, the first comprehensive approach to account abstra
 
 Our technical contributions include:
 - A novel intention validation scheme specifically designed for Cardano's execution model
-- Multi-signature support with customizable quorum requirements using hot and cold keys
+- Non-native multi-signature support with customizable quorum requirements using hot and cold keys
 - An account-centered approach that simplifies both wallet interfaces and DApp interactions
 - Fund shielding through an innovative vault mechanism that protects assets from DeFi vulnerabilities
 
@@ -102,7 +102,7 @@ Bullet's Vault mechanism allows users to designate specific UTxOs that require e
 - Users can maintain a small portion of funds for normal spending or DeFi interactions while protecting the majority of their holdings
 - The mechanism helps protect against draining attacks or misuse by DApps
 
-This structure enables off-chain indexers to track how much value Bullet users allocate to DeFi applications versus secured storage, potentially serving as an indicator of DeFi ecosystem health.
+This structure enables off-chain indexers to track how much value Bullet users allocate to risk in DeFi versus secured storage, serving as one indicator of DeFi ecosystem health.
 
 For a user to specify a UTxO as a Vault UTxO, they simply need to create that UTxO with a Vault type datum from the Bullet Datum types.
 
