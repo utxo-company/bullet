@@ -5,8 +5,8 @@
   authors: (
     (
       name: "Kasey White",
-      affiliation: "Cardano Foundation",
-      email: "byword-hitters.9h@icloud.com", 
+      affiliation: "Input Output Global",
+      email: "kasey.white@iohk.io", 
     ),
   ),
   abstract: [
@@ -157,10 +157,6 @@ The signing process works as follows:
 4. The final transaction includes all original intention data, the signatures, and the user's address
 
 At transaction execution, the validator compares each constraint in the intention against the actual transaction structure, rejecting the transaction if any constraint is not met. This validation step prevents any attempt to use signed intentions for operations that exceed their authorized scope.
-
-=== Cost Model Maybe (Stretch Goal)?
-
-#lorem(50)
 
 = Applications in DeFi
 Bullet's intention-based approach solves key challenges in DeFi applications on UTxO-based blockchains, enabling more efficient and user-friendly experiences across multiple use cases.
