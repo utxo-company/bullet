@@ -230,6 +230,4 @@ Our approach separates what users want to accomplish from how transactions are c
 
 The applications we've outlined demonstrate real solutions to existing problems rather than theoretical improvements. Pay-on-execution for orderbooks, efficient atomic swaps, and contention-free access to global state all derive directly from the intention-based architecture.
 
-Integration with DexHunter is in progress, with plans for Lace integration soon. These implementations will provide practical validation of the approach.
-
 Future work will focus on quantum resistance through script-executed quantum-resistant signature verification schemes.
