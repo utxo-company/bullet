@@ -57,9 +57,6 @@ The validation process follows these sequential steps:
 ```aiken
 /// Represents a user-signed intention with authentication data
 type SignedIntention {
-    // User stake key hash for identification
-    user_stake: ScriptHash,
-
     // Core intention data
     intent: Intent,
 
@@ -68,23 +65,26 @@ type SignedIntention {
     postfix: ByteArray,
 
     // Authentication signatures
-    signatures: Data<List<Signature>>
+    signatures: List<Signature>
 }
 
 /// Core intention structure
 type Intent {
     // Runtime validation constraints
-    constraints: Data<List<Constraint>>,
+    constraints: List<Constraint>,
 
     // Value movement specification
-    value_leaving: (Lovelace, Data<Pair<PolicyId, OutputAssetMap>>),
+    value_leaving: (Lovelace, Pair<PolicyId, OutputAssetMap>),
 
     // Uniqueness enforcer
     nonce: IntentNonce
+
+    // User stake key hash for identification
+    user_stake: ScriptHash,
 }
 
 /// Nonce types for intention uniqueness
-pub type IntentNonce {
+type IntentNonce {
     Sequential(Int)
     Parallel(OutputReference)
 }
@@ -93,33 +93,32 @@ pub type IntentNonce {
 ### Constraint System
 ```aiken
 /// Defines validation requirements
-pub type Constraint {
-    OutConNil(Data<OutputConstraint>)
+type Constraint {
+    OutConNil(OutputConstraint)
     SignedNil(VerificationKeyHash)
-    RedeemerVal(Data<ScriptPurpose>, Data<List<Int>>, Data<Option<Data>>)
-    RefConVal(Data<InputConstraint>)
-    InpConVal(Data<InputConstraint>)
+    RedeemerVal(ScriptPurpose, List<Int>, Option<Data>)
+    RefConVal(InputConstraint)
+    InpConVal(InputConstraint)
     MintConNil(PolicyId, AssetName, Int)
     AfterVal(Int)
     BeforeVal(Int)
 }
 
 /// Input validation requirements
-pub type InputConstraint {
-    address: Data<Options<Address, Credential>>,
-    value: Data<List<(PolicyId, AssetName, Int)>>,
-    datum_field: Data<List<Int>>,
-    in_ref: Data<Option<OutputReference>>,
+type InputConstraint {
+    address: Options<Address, Credential>,
+    value: List<(PolicyId, AssetName, Int)>,
+    datum_field: List<Int>,
+    in_ref: Option<OutputReference>,
 }
 
 /// Output validation requirements
-pub type OutputConstraint {
-    address: Data<Options<Address, Credential>>,
-    value: Data<
+type OutputConstraint {
+    address:Options<Address, Credential>,
+    value:
         Options<Pairs<ByteArray, Pairs<ByteArray, Int>>, (PolicyId, AssetName)>,
-    >,
-    datum: Data<Options<Data, (ByteArray, ByteArray)>>,
-    ref: Data<Option<ScriptHash>>
+    datum:Options<Data, (ByteArray, ByteArray)>,
+    ref: Option<ScriptHash>,
 }
 ```
 
@@ -129,7 +128,7 @@ pub type OutputConstraint {
 ```aiken
 /// Example: Sequential intention chain
 // First intention
-SignedIntention {
+Intention {
     nonce: Sequential(n),      // Current sequence number
     constraints: [             // Transaction constraints
         OutConNil(payment),    // Payment requirements
@@ -139,56 +138,59 @@ SignedIntention {
         100_000_000,          // ADA amount
         tokens                // Token bundle
     )
+    user_stake: user1_stake,
 }
 
 // Next intention
-SignedIntention {
+Intention {
     nonce: Sequential(n+1),    // Next sequence number
     constraints: [
         OutConNil(payment),
         SignedNil(signer)
     ],
     value_leaving: (50_000_000, tokens)
+    user_stake: user1_stake,
 }
 ```
 
 ### Parallel Processing
 ```aiken
 /// Example: Parallel intention execution
-SignedIntention {
-    nonce: Parallel(specific_utxo),  // UTXO-based nonce
+Intention {
     constraints: [
         InpConVal(input_requirement),
         MintConNil(policy_id, asset_name, 1),
         BeforeVal(deadline)
     ],
     value_leaving: (value_details)
+    nonce: Parallel(specific_utxo),  // UTXO-based nonce
+    user_stake: user1_stake,
 }
 ```
 ### Combined
 ```aiken
 // User 1 Sequential Intentions
-SignedIntention {
-  user_stake: user1_stake,
-  nonce: Sequential(5),
+Intention {
   constraints: [
     OutConNil(payment_constraint),
     SignedNil(required_signer),
     RedeemerVal(script_purpose, [0], Some(expected_value))
   ],
   value_leaving: (1_000_000, token_bundle_1)
+  nonce: Sequential(5),
+  user_stake: user1_stake,
 }
 
 // User 2 Parallel Intention
 SignedIntention {
-  user_stake: user2_stake,
-  nonce: Parallel(specific_utxo),
   constraints: [
     InpConVal(input_requirement),
     MintConNil(policy_id, asset_name, 1),
     BeforeVal(deadline)
   ],
   value_leaving: (500_000, token_bundle_2)
+  nonce: Parallel(specific_utxo),
+  user_stake: user2_stake,
 }
 ```
 
@@ -197,10 +199,10 @@ SignedIntention {
 ### Input Constraint Structure
 ```aiken
 type InputConstraint {
-  address: Data<Options<Address, Credential>>,  // Target address or credential
-  value: Data<List<(PolicyId, AssetName, Int)>>, // Required assets
-  datum_field: Data<List<Int>>, // Path to datum fields
-  in_ref: Data<Option<OutputReference>> // Specific UTXO reference
+    address: Options<Address, Credential>, // Target address or credential
+    value: List<(PolicyId, AssetName, Int)>, // Required assets
+    datum_field: List<Int>, // Path to datum field
+    in_ref: Option<OutputReference>, // Specific UTXO reference
 }
 ```
 
@@ -317,15 +319,13 @@ RefConVal(InputConstraint {
 ### Output Constraint Structure
 ```aiken
 type OutputConstraint {
-  address: Data<Options<Address, Credential>>, // Target address/credential
-  value: Data<
-    Options<
+  address: Options<Address, Credential>, // Target address/credential
+  value: Options<
       Pairs<ByteArray, Pairs<ByteArray, Int>>, // Exact value
-      (PolicyId, AssetName) // Token specification
-    >
-  >,
-  datum: Data<Options<Data, (ByteArray, ByteArray)>>, // Datum requirements
-  ref: Data<Option<ScriptHash>> // Script reference
+      (PolicyId, AssetName) // Require token plus temp value amount
+    >,
+  datum: Options<Data, (ByteArray, ByteArray)>, // Datum requirements
+  ref: Option<ScriptHash> // Script reference
 }
 ```
 
@@ -421,7 +421,7 @@ OutConNil(OutputConstraint {
 ```aiken
 fn handle_out_constraint(
   outputs: List<Output>,
-  con: Data<OutputConstraint>,
+  con: OutputConstraint,
   temp_val: Data,
 ) -> Data {
   // 1. Address validation
@@ -487,7 +487,7 @@ OutConNil(OutputConstraint {
 ```aiken
 // temp_val is a Data value that gets passed through constraint validation
 // and can be used to carry intermediate results between constraints
-fn handle_constraint(constraint: Data<Constraint>, temp_val: Data) -> Data
+fn handle_constraint(constraint: Constraint, temp_val: Data) -> Data
 ```
 
 ### Key Characteristics

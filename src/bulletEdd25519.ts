@@ -524,6 +524,7 @@ export async function intentSpend(lucid: LucidEvolution) {
     ],
     nonce: { Sequential: [1n] },
     valueLeaving: [5000000n, new Map()],
+    userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
   };
 
   const intentMessage = Data.to(intent, IntentType);
@@ -533,7 +534,7 @@ export async function intentSpend(lucid: LucidEvolution) {
     .collectFrom([
       {
         address: randomAccount.address,
-        assets: { lovelace: 1500000n },
+        assets: { lovelace: 1800000n },
         txHash:
           "d6ad0a886fa731d0c5571ec673214bd90f1eeabd5d5ed3f5e4c942e32e9ef6b7",
         outputIndex: 0,
@@ -594,7 +595,6 @@ export async function intentSpend(lucid: LucidEvolution) {
         prefix,
         postfix,
         signatures: [signature],
-        userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
       },
     ],
   };
@@ -674,6 +674,7 @@ export async function intentSpend2(lucid: LucidEvolution) {
     ],
     nonce: { Sequential: [1n] },
     valueLeaving: [5000000n, new Map()],
+    userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
   };
 
   const intentMessage = Data.to(intent, IntentType);
@@ -744,7 +745,6 @@ export async function intentSpend2(lucid: LucidEvolution) {
         prefix,
         postfix,
         signatures: [signature],
-        userStake: getAddressDetails(bulletAddress).stakeCredential!.hash,
       },
     ],
   };

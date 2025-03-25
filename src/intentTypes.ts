@@ -150,6 +150,7 @@ export const IntentSchema = Data.Object({
     Data.Map(Data.Bytes({ minLength: 28, maxLength: 28 }), OutputAssetMap),
   ]),
   nonce: NonceSchema,
+  userStake: Data.Bytes({ minLength: 28, maxLength: 28 }),
 });
 
 export type IntentType = Data.Static<typeof IntentSchema>;
@@ -158,7 +159,6 @@ export const IntentType = IntentSchema as unknown as IntentType;
 
 // Schema for signed intent including signatures
 export const SignedIntentSchema = Data.Object({
-  userStake: Data.Bytes({ minLength: 28, maxLength: 28 }),
   intent: IntentSchema,
   prefix: Data.Bytes(),
   postfix: Data.Bytes(),

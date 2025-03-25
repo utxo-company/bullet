@@ -7,7 +7,7 @@ use aiken/crypto.{
 }
 use aiken/primitive/bytearray.{concat}
 use cardano/address.{Address, Credential, Inline, Script}
-use cardano/assets.{PolicyId, to_dict}
+use cardano/assets.{Lovelace, PolicyId, to_dict}
 use cardano/transaction.{InlineDatum, Input, NoDatum, Output, OutputReference}
 use config
 use intention_types.{
@@ -17,6 +17,12 @@ use intention_types.{
 use prefix.{nonce_prefix}
 use types.{Control, ParallelNonce, Vault, Verification, Vk, Withdrawal}
 use utils.{dataify, must_have_key, ref_control_datum}
+
+pub fn default_lace_and_value(
+  a: fn(Lovelace, Pairs<Data<PolicyId>, Data<OutputAssetMap>>) -> Bool,
+) -> Bool {
+  a(0, [])
+}
 
 /// Optimized for expecting the name values of policy and assets in one output
 /// is less than or equal to the next output
@@ -239,7 +245,11 @@ pub fn fold_intent_counts(
 ) -> Bool {
   when intent_counts is {
     // ensure we have exhausted intentions and inputs
-    [] -> intentions == [] && inputs == []
+    [] -> {
+      expect [] = intentions
+      expect [] = inputs
+      True
+    }
 
     [additional_intent_count, ..rest_count] -> {
       let additional_intents = builtin.un_b_data(additional_intent_count)
@@ -249,13 +259,12 @@ pub fn fold_intent_counts(
 
       expect SignedIntention {
         prefix,
-        user_stake,
-        intent: Intent { constraints, value_leaving, nonce } as intent,
+        intent: Intent { constraints, value_leaving, nonce, user_stake } as intent,
         postfix,
         signatures,
       } = signed_intent
 
-      let nonce_numb: Int, parallel_nonce_list <-
+      let nonce_numb: Int, parallel_nonce_list: List<Data<OutputReference>> <-
         fn(callback) {
           when nonce is {
             Sequential(i) -> callback(i, [])
@@ -340,7 +349,7 @@ pub fn fold_intent_counts(
               nonce_numb,
               nonce_numb,
               parallel_nonce_list,
-              fn(a) { a(0, []) },
+              default_lace_and_value,
               rest_intents,
             )
           } else {
@@ -383,7 +392,7 @@ pub fn fold_intent_counts(
           first_nonce,
           inputs,
           [],
-          fn(a) { a(0, []) },
+          default_lace_and_value,
           parallel_nonce_list,
         )
 
@@ -404,11 +413,12 @@ pub fn fold_intent_counts(
         }
 
       // eighth part: find change outputs going to the user and combine the value
+      // Note: We limit max change outputs per user to 5
       // return unrelated outputs for other users to validate on in the next loop
       let
         output_value: LaceAndValue<Bool>,
         remaining_outputs: List<Output>,
-      <- fold_outputs(user_address, offset_outputs, fn(a) { a(0, []) })
+      <- fold_outputs(user_address, offset_outputs, 5)
 
       // ninth part: validate the value leaving + output value equals input value
       // from this user
@@ -549,13 +559,23 @@ fn fold_constraints(
   temp_val: Data,
   constraint_validator: fn(Data<Constraint>, Data) -> Data,
 ) -> Bool {
-  expect [constraint, ..rest] = constraints
-
-  let new_temp_val = constraint_validator(constraint, temp_val)
-
-  when rest is {
+  when constraints is {
     [] -> True
-    _ -> fold_constraints(rest, new_temp_val, constraint_validator)
+    [constraint] -> {
+      expect _: Data = constraint_validator(constraint, temp_val)
+      True
+    }
+    [constraint, next] -> {
+      let next_temp = constraint_validator(constraint, temp_val)
+      expect _: Data = constraint_validator(next, next_temp)
+      True
+    }
+    [constraint, next, next_next, ..rest] -> {
+      let next_temp = constraint_validator(constraint, temp_val)
+      let next_next_temp = constraint_validator(next, next_temp)
+      let rest_temp: Data = constraint_validator(next_next, next_next_temp)
+      fold_constraints(rest, rest_temp, constraint_validator)
+    }
   }
 }
 
@@ -585,10 +605,9 @@ fn fold_intents(
     // deal with intent here
     expect SignedIntention {
       prefix,
-      intent: Intent { constraints, value_leaving, nonce } as intent,
+      intent: Intent { constraints, value_leaving, nonce, .. } as intent,
       postfix,
       signatures,
-      ..
     } = signed_intent
 
     expect
@@ -728,34 +747,47 @@ fn validate_out_nonce(
 fn fold_outputs(
   user_address: Address,
   outputs: List<Output>,
-  acc_value: LaceAndValue<Bool>,
+  output_count: Int,
   callback,
 ) {
-  when outputs is {
-    [] -> callback(acc_value, outputs)
-    [output, ..rest] -> {
-      let Output { address, value, datum, .. } = output
+  if output_count == 0 {
+    callback(default_lace_and_value, outputs)
+  } else {
+    when outputs is {
+      [] -> callback(default_lace_and_value, outputs)
+      [output, ..rest] -> {
+        let Output { address, value, datum, .. } = output
+        if address == user_address {
+          expect datum == NoDatum
 
-      expect address == user_address
-      expect datum == NoDatum
+          let
+            acc_value,
+            remaining_outputs,
+          <- fold_outputs(user_address, rest, output_count - 1)
 
-      let lace, acc_value <- acc_value
+          let lace, other_value <- acc_value
 
-      expect [Pair(_, lovelace_map), ..rest_right] =
-        value |> dataify |> builtin.un_map_data
+          expect [Pair(_, lovelace_map), ..rest_left] =
+            value |> dataify |> builtin.un_map_data
 
-      expect [Pair(_, inp_lace), ..] = lovelace_map |> builtin.un_map_data
+          expect [Pair(_, inp_lace), ..] = lovelace_map |> builtin.un_map_data
 
-      let new_lace = lace + builtin.un_i_data(inp_lace)
+          let new_value =
+            if lace == 0 {
+              fn(a) { a(builtin.un_i_data(inp_lace), rest_left) }
+            } else {
+              let new_lace = lace + builtin.un_i_data(inp_lace)
 
-      let new_value = fast_combine_output_value(acc_value, rest_right)
+              let new_value = fast_combine_output_value(rest_left, other_value)
 
-      fold_outputs(
-        user_address,
-        rest,
-        fn(a) { a(new_lace, new_value) },
-        callback,
-      )
+              fn(a) { a(new_lace, new_value) }
+            }
+
+          callback(new_value, remaining_outputs)
+        } else {
+          callback(default_lace_and_value, outputs)
+        }
+      }
     }
   }
 }

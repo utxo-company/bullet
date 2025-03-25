@@ -59,10 +59,10 @@ pub type Intent {
   constraints: Data<List<Constraint>>,
   value_leaving: (Lovelace, Data<Pairs<PolicyId, OutputAssetMap>>),
   nonce: IntentNonce,
+  user_stake: ScriptHash,
 }
 
 pub type SignedIntention {
-  user_stake: ScriptHash,
   intent: Intent,
   prefix: ByteArray,
   postfix: ByteArray,

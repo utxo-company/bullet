@@ -122,10 +122,10 @@ export const bulletNonceScript: SpendingValidator = {
   script: bulletNonceValidator,
 };
 
-export const proxyAddress = validatorToAddress("Mainnet", proxyScript);
+export const proxyAddress = validatorToAddress("Preview", proxyScript);
 
 export const proxyRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   proxyScript,
 );
 
@@ -144,18 +144,18 @@ export const bulletNonceHash = validatorToScriptHash(bulletNonceScript);
 export const bulletNonceCred = scriptHashToCredential(bulletNonceHash);
 
 export const bulletRewardAddress = credentialToRewardAddress(
-  "Mainnet",
+  "Preview",
   bulletStakeCred,
 );
 
 export const bulletAddress = validatorToAddress(
-  "Mainnet",
+  "Preview",
   bulletScript,
   bulletStakeCred,
 );
 
 export const bulletNonceAddress = validatorToAddress(
-  "Mainnet",
+  "Preview",
   bulletNonceScript,
   bulletStakeCred,
 );
@@ -175,26 +175,26 @@ export const changeAuthHash = validatorToScriptHash(changeAuthScript);
 export const deleteHash = validatorToScriptHash(deleteScript);
 
 export const hotAuthRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   hotAuthScript,
 );
 
 export const walletAuthRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   walletAuthScript,
 );
 
 export const coldAuthRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   coldAuthScript,
 );
 
 export const changeAuthRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   changeAuthScript,
 );
 
 export const intentAuthRewardAddress = validatorToRewardAddress(
-  "Mainnet",
+  "Preview",
   intentAuthScript,
 );
